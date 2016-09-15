@@ -1,0 +1,5 @@
+# System environment variables
+export PATH="$HOME/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+export MANPATH="/usr/local/man:$MANPATH"
+
+export PATH="$(brew --prefix coreutils)/libexec/gnubin:$PATH"

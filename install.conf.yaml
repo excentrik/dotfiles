@@ -1,0 +1,48 @@
+- defaults:
+    link:
+      relink: true
+
+- clean: ['~']
+
+- link:
+    ~/.aliases: home_files/.aliases
+    ~/.bash_profile: home_files/.bash_profile
+    ~/.bash_prompt: home_files/.bash_prompt
+    ~/.bashrc: home_files/.bashrc
+    ~/.exports: home_files/.exports
+    ~/.functions: home_files/.functions
+    ~/.mongorc.js: home_files/.mongorc.js
+    ~/.prompt: home_files/.prompt
+    ~/.inputrc: home_files/.inputrc
+    ~/.extra: extra/.extra
+    ~/.dotfiles: ''
+    ~/.idea: idea
+    ~/.gitconfig: git/gitconfig
+    ~/.gitignore_global: git/gitignore_global
+    ~/.zsh: zsh/zsh_files
+    ~/.zshrc: zsh/zshrc
+    ~/.oh-my-zsh: oh-my-zsh
+#    '~/.ipython/profile_default/ipython_kernel_config.py': 'ipython/profile_default/ipython_kernel_config.py'
+
+- shell:
+  -
+    command: sudo softwareupdate -i -a # Update machine software
+    stdout: true
+    stdin: true
+    stderr: true
+  - [mkdir -p ~/Downloads, Creating downloads directory]
+  - [mkdir -p ~/Projects, Creating projects directory]
+  - [git update-submodules, Update submodules, after linking ~/.gitconfig]
+  -
+    command: xcode-select --install # Command Line Tools for Xcode
+    stdout: true
+    stdin: true
+    stderr: true
+  -
+    command: /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    stdout: true
+    stdin: true
+    stderr: true
+  - [system/osxdefaults.sh] # Change some system defaults
+  - [system/brew.sh] # Install brew packages
+

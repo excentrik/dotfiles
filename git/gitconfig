@@ -1,0 +1,67 @@
+[user]
+	name = Nicolau Gonçalves
+	email = nicolau@sharkpunch.com
+
+[core]
+	excludesfile = ~/.gitignore_global
+
+[psh]
+	default = simple
+
+[push]
+	default = simple
+
+[alias]
+  co = checkout
+  lg = log -p
+  cleanupremotes = "!git remote | xargs -I % -n 1 git fetch % --prune"
+  cleanuplocal = "!git branch --merged | grep -v '\\*\\|master\\|develop' | xargs -n 1 git branch -d"
+  cleanup = "!git cleanupremotes && git cleanuplocal"
+	update-submodules = submodule update --init --recursive
+	upgrade-submodules = submodule update --init --remote
+	empty-tree-hash = hash-object -t tree /dev/null
+	tar = ! "tar() { git archive --format tar --prefix=\"${PWD##*/}/\" HEAD -o ${1}; }; tar"
+	targz = ! "targz() { git archive --format tar.gz --prefix=\"${PWD##*/}/\" HEAD -o ${1}; }; targz"
+	zip = ! "zip() { git archive --format zip --prefix=\"${PWD##*/}/\" HEAD -o ${1}; }; zip"
+
+[diff]
+	mnemonicPrefix = true
+	wordRegex = "[^[:space:]]|([[:alnum:]]|UTF_8_GUARD)+"
+	compactionHeuristic = true
+
+[color]
+	ui = auto
+
+[color "grep"]
+	match = cyan bold
+	selected = blue
+	context = normal
+	filename = magenta
+	linenumber = green
+	separator = yellow
+	function = blue
+
+[pretty]
+	line = "%C(auto)%h%d %s %C(yellow)by %C(blue)%an %C(green)%ar"
+	compact = "%C(auto)%h %s %C(green)%ar%n %C(auto)%d%n"
+	detail = "%C(auto)%h %s%n  %C(yellow)by %C(blue)%an %C(magenta)<%ae> [%G?] %C(green)%ar%n %C(auto)%d%n"
+
+[merge]
+	defaultToUpstream = true
+	tool = vimdiff
+
+[mergetool]
+	keepBackup = false
+
+[credential]
+	helper = cache --timeout=3600
+
+[grep]
+	lineNumber = true
+
+[advice]
+	detachedHead = false
+
+# Allow local customizations in the .gitconfig_local file
+[include]
+	path = ~/.gitconfig_local
