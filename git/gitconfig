@@ -1,7 +1,3 @@
-[user]
-	name = Nicolau Gonçalves
-	email = nicolau@sharkpunch.com
-
 [core]
 	excludesfile = ~/.gitignore_global
 
