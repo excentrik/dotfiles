@@ -37,6 +37,7 @@
     stderr: true    
   - [mkdir -p ~/Downloads, Creating downloads directory]
   - [mkdir -p ~/Projects, Creating projects directory]
+  - [mkdir -p ~/Pictures/Screenshots, Creat screenshots directory]
   - [git update-submodules, Update submodules, after linking ~/.gitconfig]
   -
     command: xcode-select --install # Command Line Tools for Xcode
