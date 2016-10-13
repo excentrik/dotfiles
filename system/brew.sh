@@ -66,6 +66,7 @@ brew install zsh
 # Install casks
 brew tap caskroom/cask
 brew install brew-cask
+brew install homebrew/completions/brew-cask-completion
 brew tap caskroom/versions
 
 brew cask install dropbox
