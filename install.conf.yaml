@@ -49,6 +49,13 @@
     stdout: true
     stdin: true
     stderr: true
-  - [system/osxdefaults.sh] # Change some system defaults
-  - [system/brew.sh] # Install brew packages
-
+  - 
+    command: system/osxdefaults.sh # Change some system defaults
+    stdout: true
+    stdin: true
+    stderr: true    
+  - 
+    command: system/brew.sh # Install brew packages
+    stdout: true
+    stdin: true
+    stderr: true
