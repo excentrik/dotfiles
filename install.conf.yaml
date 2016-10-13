@@ -30,6 +30,11 @@
     stdout: true
     stdin: true
     stderr: true
+  -
+    command: git config --global credential.helper osxkeychain
+    stdout: true
+    stdin: true
+    stderr: true    
   - [mkdir -p ~/Downloads, Creating downloads directory]
   - [mkdir -p ~/Projects, Creating projects directory]
   - [git update-submodules, Update submodules, after linking ~/.gitconfig]
