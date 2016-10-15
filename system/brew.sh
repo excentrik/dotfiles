@@ -61,7 +61,7 @@ brew install ssh-copy-id
 # brew install zopfli
 brew install nmap
 brew install python
-brew install zsh
+brew install zsh zsh-completions
 
 # Install casks
 brew tap caskroom/cask
