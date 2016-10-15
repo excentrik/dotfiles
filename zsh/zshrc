@@ -75,7 +75,7 @@ function chpwd() {
 }
 
 # zsh-completions
-fpath=(~/.zsh/plugins/zsh-completions/src $fpath)
+#fpath=(~/.zsh/plugins/zsh-completions/src $fpath)
 
 # Initialize completion
 autoload -Uz compinit && compinit -i
@@ -117,5 +117,5 @@ export NVM_DIR="$HOME/.nvm"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 
 # Disable auto-correct
-#unsetopt correct
+unsetopt correct
 
