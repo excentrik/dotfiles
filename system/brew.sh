@@ -45,7 +45,7 @@ brew install ack
 # brew install dark-mode
 #brew install exiv2
 brew install git
-brew install git-lfs
+#brew install git-lfs
 brew install imagemagick --with-webp
 # brew install lua
 # brew install lynx
@@ -65,15 +65,16 @@ brew install zsh
 
 # Install casks
 brew tap caskroom/cask
-brew install brew-cask
+#brew install brew-cask
 brew install homebrew/completions/brew-cask-completion
 brew tap caskroom/versions
 
 brew cask install dropbox
-brew cask install firefox
+#brew cask install firefox
 brew cask install google-chrome
+brew cask install google-drive
 brew cask install spotify
-brew cask install virtualbox
+#brew cask install virtualbox
 brew cask install vlc
 brew cask install osxfuse
 
