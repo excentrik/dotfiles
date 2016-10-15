@@ -59,3 +59,4 @@
     stdout: true
     stdin: true
     stderr: true
+  - [chsh -s /usr/local/bin/zsh] # Change to zsh
