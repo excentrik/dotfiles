@@ -51,7 +51,7 @@ DISABLE_UNTRACKED_FILES_DIRTY="true"
 HIST_STAMPS="dd.mm.yyyy"
 
 # Would you like to use another custom folder than $ZSH/custom?
-ZSH_CUSTOM=$HOME/.zsh/
+ZSH_CUSTOM=$HOME/.zsh
 
 # Which plugins would you like to load? (plugins can be found in ~/.oh-my-zsh/plugins/*)
 # Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
@@ -59,18 +59,10 @@ ZSH_CUSTOM=$HOME/.zsh/
 # Add wisely, as too many plugins slow down shell startup.
 plugins=(git zsh-syntax-highlighting osx colored-man colorize github jira vagrant virtualenv pip python brew)
 
-# Load the shell dotfiles, and then some:
-# * ~/.mix-path can be used to extend `$PATH`.
-# * ~/.mix-extra can be used for other settings you don’t want to commit to your repo.
-for file in ~/.mix-{path,exports,aliases,extra}; do
-	[ -r "$file" ] && source "$file"
-done
-unset file
-
 # Add chpwd hook that gets executed every change of directory
 function chpwd() {
     for chpwd_file in $ZSH_CUSTOM/*.chpwd; do
-        . $chpwd_file
+        [ -r "$chpwd_file" ] && [ -f "$chpwd_file" ] && . $chpwd_file
     done
 }
 
