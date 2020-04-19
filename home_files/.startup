@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# This code will get run every time we start a bash shell
+
+# This should be at the end of shell initialization so that all output
+# knows the correct window size after each command and, if necessary,
+# update the values of LINES and COLUMNS.
+shopt -s checkwinsize
+

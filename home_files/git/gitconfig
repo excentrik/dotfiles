@@ -1,0 +1,74 @@
+[core]
+    excludesfile = $HOME/.gitignore_global
+    filemode = false
+    ignorecase = true
+    preloadindex = true
+    autocrlf = input
+
+[log]
+    date = iso
+
+[push]
+    default = simple
+
+[pull]
+    ff = true
+    rebase = true
+
+[merge]
+    ff = false
+    defaultToUpstream = false
+    tool = vimdiff
+
+[alias]
+    co = checkout
+    lg = log -p
+    s = status --short
+    l = log --color --graph --pretty=format:'%C(yellow)%h%Creset%C(bold green)%d%Creset %s %Creset'
+    cleanupremotes = "!git remote | xargs -I % -n 1 git fetch % --prune"
+    cleanuplocal = "!git branch --merged | grep -v '\\*\\|master\\|develop' | xargs -n 1 git branch -d"
+    cleanup = "!git cleanupremotes && git cleanuplocal"
+    update-submodules = submodule update --init --recursive
+    upgrade-submodules = submodule update --init --remote
+    empty-tree-hash = hash-object -t tree /dev/null
+    tar = ! "tar() { git archive --format tar --prefix=\"${PWD##*/}/\" HEAD -o ${1}; }; tar"
+    targz = ! "targz() { git archive --format tar.gz --prefix=\"${PWD##*/}/\" HEAD -o ${1}; }; targz"
+    zip = ! "zip() { git archive --format zip --prefix=\"${PWD##*/}/\" HEAD -o ${1}; }; zip"
+	oldest-ancestor = !bash -c 'diff -u <(git rev-list --first-parent \"${1:-master}\") <(git rev-list --first-parent \"${2:-HEAD}\") | sed -ne \"s/^ //p\" | head -1' -
+	changed = ! "func() { git status -s | awk '{$1=$1};1' | grep -E '^[AM]{1,2}\\s.*$' | cut -d' ' -f2;  }; func"
+
+[diff]
+    mnemonicPrefix = true
+    wordRegex = "[^[:space:]]|([[:alnum:]]|UTF_8_GUARD)+"
+    compactionHeuristic = true
+    renames = true
+
+[color]
+    ui = auto
+
+[color "grep"]
+    match = cyan bold
+    selected = blue
+    context = normal
+    filename = magenta
+    linenumber = green
+    separator = yellow
+    function = blue
+
+[pretty]
+    line = "%C(auto)%h%d %s %C(yellow)by %C(blue)%an %C(green)%ar"
+    compact = "%C(auto)%h %s %C(green)%ar%n %C(auto)%d%n"
+    detail = "%C(auto)%h %s%n  %C(yellow)by %C(blue)%an %C(magenta)<%ae> [%G?] %C(green)%ar%n %C(auto)%d%n"
+
+[grep]
+    lineNumber = true
+
+[advice]
+    detachedHead = false
+
+[rebase]
+    autoStash = true
+
+# Allow local customizations in the .gitconfig_local file
+[include]
+    path = ~/.gitconfig_local

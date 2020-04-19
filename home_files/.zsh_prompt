@@ -1,0 +1,176 @@
+#------------------------------
+# Window title
+#------------------------------
+termtitle() {
+    case "$TERM" in
+        rxvt*|xterm*|nxterm|gnome|screen|screen-*)
+            local prompt_host="${(%):-%m}"
+            local prompt_user="${(%):-%n}"
+            local prompt_char="${(%):-%~}"
+            case "$1" in
+                precmd)
+                    printf '\e]0;%s@%s: %s\a' "${prompt_user}" "${prompt_host}" "${prompt_char}"
+                ;;
+                preexec)
+                    printf '\e]0;%s [%s@%s: %s]\a' "$2" "${prompt_user}" "${prompt_host}" "${prompt_char}"
+                ;;
+            esac
+        ;;
+    esac
+}
+
+
+precmd() {
+    # Set terminal title.
+    termtitle precmd
+
+    if [ "${git_pwd_is_worktree}" = 'true' ]; then
+        git_branch
+        git_dirty
+
+        git_prompt=" %F{blue}[%F{253}${git_branch}${git_dirty}%F{blue}]"
+    else
+        unset git_prompt
+    fi
+}
+
+preexec() {
+    # Set terminal title along with current executed command pass as second argument
+    termtitle preexec "${(V)1}"
+}
+
+
+#------------------------------
+# Shell prompt
+#------------------------------
+
+has() {
+    local string="${1}"
+    shift
+    local element=''
+    for element in "$@"; do
+        if [ "${string}" = "${element}" ]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+begin_with() {
+    local string="${1}"
+    shift
+    local element=''
+    for element in "$@"; do
+        if [[ "${string}" =~ "^${element}" ]]; then
+            return 0
+        fi
+    done
+    return 1
+
+}
+
+over_ssh() {
+    if [ -n "${SSH_CLIENT}" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+git_check_if_worktree() {
+    # This function intend to be only executed in chpwd().
+    # Check if the current path is in git repo.
+
+    # We would want stop this function, on some big git repos it can take some time to cd into.
+    if [ -n "${skip_zsh_git}" ]; then
+        git_pwd_is_worktree='false'
+        return 1
+    fi
+    if [ -x "$(command -v git)" ] && git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+    #if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+          git_check_if_workdir_path=${PWD}
+    else
+        : # this is not a git repository
+    fi
+
+    # The : separated list of paths where we will run check for git repo.
+    # If not set, then we will do it only for /root and /home.
+    if [ "${UID}" = '0' ]; then
+        # running 'git' in repo changes owner of git's index files to root, skip prompt git magic if CWD=/home/*
+        git_check_if_workdir_path="${git_check_if_workdir_path:-/root:/etc}"
+    else
+        git_check_if_workdir_path="${git_check_if_workdir_path:-/home}"
+        git_check_if_workdir_path_exclude="${git_check_if_workdir_path_exclude:-${HOME}/_sshfs}"
+    fi
+
+    if begin_with "${PWD}" ${=git_check_if_workdir_path//:/ }; then
+        if ! begin_with "${PWD}" ${=git_check_if_workdir_path_exclude//:/ }; then
+            local git_pwd_is_worktree_match='true'
+        else
+            local git_pwd_is_worktree_match='false'
+        fi
+    fi
+
+    if ! [ "${git_pwd_is_worktree_match}" = 'true' ]; then
+        git_pwd_is_worktree='false'
+        return 1
+    fi
+
+    # todo: Prevent checking for /.git or /home/.git, if PWD=/home or PWD=/ maybe...
+    #   damn annoying RBAC messages about Access denied there.
+    if [ -d '.git' ] || [ "$(git rev-parse --is-inside-work-tree 2> /dev/null)" = 'true' ]; then
+        git_pwd_is_worktree='true'
+        git_worktree_is_bare="$(git config core.bare)"
+    else
+        unset git_branch git_worktree_is_bare
+        git_pwd_is_worktree='false'
+    fi
+}
+
+git_branch() {
+    git_branch="$(git symbolic-ref HEAD 2>/dev/null)"
+    git_branch="${git_branch#refs/heads/}"
+    git_branch="${git_branch:-no branch}"
+}
+
+git_dirty() {
+    if [ "${git_worktree_is_bare}" = 'false' ] && [ -n "$(git status --untracked-files='no' --porcelain)" ]; then
+        git_dirty='%F{green}*'
+    else
+        unset git_dirty
+    fi
+}
+
+chpwd() {
+    git_check_if_worktree
+}
+
+# Check if we started zsh in git worktree, useful with tmux when your new zsh may spawn in source dir.
+git_check_if_worktree
+if [ "${git_pwd_is_worktree}" = 'true' ]; then
+    git_branch
+    git_dirty
+    git_prompt=" %F{blue}[%F{253}${git_branch}${git_dirty}%F{blue}]"
+else
+    unset git_prompt
+fi
+
+# Fancy prompt.
+if over_ssh && [ -z "${TMUX}" ]; then
+    prompt_is_ssh='%F{blue}[%F{red}SSH%F{blue}] '
+elif over_ssh; then
+    prompt_is_ssh='%F{blue}[%F{253}SSH%F{blue}] '
+else
+    unset prompt_is_ssh
+fi
+
+case $USER in
+    root)
+        PROMPT='%B%F{cyan}%m%k %(?..%F{blue}[%F{253}%?%F{blue}] )${prompt_is_ssh}%B%F{blue}%1~${git_prompt}%F{blue} %# %b%f%k'
+    ;;
+
+    *)
+        PROMPT='%B%F{blue}%n@%m%k %(?..%F{blue}[%F{253}%?%F{blue}] )${prompt_is_ssh}%B%F{cyan}%1~${git_prompt}%F{cyan} %# %b%f%k'
+
+    ;;
+esac

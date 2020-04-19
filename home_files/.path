@@ -1,7 +1,15 @@
-# System environment variables
-export PATH="$HOME/bin:/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
-export MANPATH="/usr/local/man:$MANPATH"
+#!/usr/bin/env bash
 
-if [ which brew > /dev/null ]; then
-	export PATH="$(brew --prefix coreutils)/libexec/gnubin:$PATH"
-fi;
+
+PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:$PATH
+
+# Add home/bin to PATH if it exists
+if ! [[ -z ${HOME} || "${PATH}" =~ ^${HOME}/bin ]]; then
+    PATH="${HOME}/bin:${PATH}"
+fi
+PATH=".:${PATH}"
+
+# Remove any duplicates from the path. It keeps the first element it finds
+PATH=$(printf "%s" "$PATH" | awk -v RS=':' '!a[$1]++ { if (NR > 1) printf RS; printf $1 }')
+export PATH
+
