@@ -1,0 +1,3 @@
+- link:
+    ~/.mongorc.js: home_files/.mongorc.js
+    ~/.aliases/mongo.sh: home_files/.aliases/mongo.sh

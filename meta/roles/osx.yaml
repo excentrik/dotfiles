@@ -1,0 +1,9 @@
+- shell:
+  -
+    command: helpers/osx_setup.sh # OSX setup
+    stdout: true
+    stdin: true
+    stderr: true
+
+- link:
+    ~/.aliases/osx.sh: home_files/.aliases/osx.sh

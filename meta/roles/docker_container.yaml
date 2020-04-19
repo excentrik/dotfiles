@@ -1,0 +1,11 @@
+- link:
+    ~/.aliases/docker_container_aliases.sh: home_files/.aliases/docker_container_aliases.sh
+    ~/.aliases/ssh_tunnels.sh: home_files/.aliases/ssh_tunnels.sh
+    ~/.ssh_hosts: home_files/.ssh_hosts
+
+#- shell:
+#  -
+#    command: helpers/docker_setup.sh # Docker container initialisation
+#    stdout: true
+#    stdin: true
+#    stderr: true

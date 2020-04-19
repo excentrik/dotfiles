@@ -1,18 +1,66 @@
 #!/usr/bin/env bash
 
-set -e
+_ENV=$1
+if [ -z $_ENV ] ; then
+  # Default to current OSTYPE
+  case "$OSTYPE" in
+    darwin*)
+        _ENV="osx" ;;
+    linux*)
+        _ENV="unix"
+        if grep docker /proc/1/cgroup -qa; then
+          _ENV="docker"
+        elif grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null ; then
+          # Assume Windows WSL
+          _ENV="wsl"
+        fi
+        ;;
+     msys)
+       _ENV="gitbash"
+       ;;
+    *)        echo "unknown platform: $OSTYPE. Aborting" && exit 1 ;;
+  esac
+fi
 
-CONFIG_SUFFIX=".conf.yaml"
-DEFAULT_CONFIG="install.conf.yaml"
+
+
+BASE_CONFIG="base"
+CONFIG_SUFFIX=".yaml"
+
+META_DIR="meta"
+CONFIG_DIR="roles"
+PROFILES_DIR="hosts"
+
 DOTBOT_DIR="dotbot"
-
 DOTBOT_BIN="bin/dotbot"
-BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-cd "${BASEDIR}"
-git submodule update --init --recursive "${DOTBOT_DIR}"
+BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "${BASE_DIR}"
 
-"${BASEDIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASEDIR}" -v -c "${DEFAULT_CONFIG}"
-for conf in ${@}; do
-    "${BASEDIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASEDIR}" -v -c "${conf}${CONFIG_SUFFIX}"
+if [ ! -f "${META_DIR}/${PROFILES_DIR}/${_ENV}${CONFIG_SUFFIX}" ]; then
+  echo "Host type ${_ENV} is not supported".
+  exit 1
+fi
+
+echo "Installing dotfiles for host type ${_ENV}"
+if [ "$(ls -A ${DOTBOT_DIR})" ]; then
+    git submodule update --recursive --remote
+else
+    # Initial update
+    git submodule update --init --recursive --remote
+fi
+
+while IFS= read -r config; do
+    TMP=${config%:*}
+    CONFIGS+=" ${TMP##* }"
+    unset TMP
+done < "${META_DIR}/${PROFILES_DIR}/${_ENV}${CONFIG_SUFFIX}"
+
+shift
+
+"${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin-dir dotbot-brew -c "${META_DIR}/${BASE_CONFIG}${CONFIG_SUFFIX}"
+
+for config in ${CONFIGS} ${@}; do
+    #echo -e "Configured $config"
+    "${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin-dir dotbot-brew -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}"
 done

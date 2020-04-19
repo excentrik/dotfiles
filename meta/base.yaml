@@ -1,0 +1,22 @@
+- defaults:
+    link:
+      create: true
+      relink: true
+      force: false
+      backup: true
+
+- clean: ['~']
+
+- link:
+    ~/.path: home_files/.path
+    ~/.exports: home_files/.exports
+    ~/.profile: home_files/.profile
+    ~/.aliases/functions.sh: home_files/.aliases/functions.sh
+    ~/.aliases/common.sh: home_files/.aliases/common.sh
+    ~/.aliases/other.sh: home_files/.aliases/other.sh
+#    ~/.dotfiles: ''
+
+- shell:
+  - [mkdir -p ~/bin, Creating bin directory]
+  - [mkdir -p ~/.aliases, Creating aliases directory]
+

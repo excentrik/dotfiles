@@ -1,0 +1,9 @@
+- link:
+    ~/.aliases/python_aliases.sh: home_files/.aliases/python_aliases.sh
+
+- shell:
+  -
+    command: helpers/python_setup.sh # Python common setup
+    stdout: true
+    stdin: true
+    stderr: true

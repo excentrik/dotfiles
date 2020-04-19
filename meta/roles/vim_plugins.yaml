@@ -1,0 +1,7 @@
+- shell:
+    -
+      command: helpers/vim_plugin_install.sh # Initialisation
+      description: Installing vim plugins
+      stdout: true
+      stdin: false
+      stderr: true

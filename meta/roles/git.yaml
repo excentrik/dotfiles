@@ -1,0 +1,14 @@
+- shell:
+  -
+    command: helpers/git_setup.sh
+    stdout: true
+    stdin: true
+    stderr: true
+
+- link:
+    ~/.gitconfig:
+      path: home_files/git/gitconfig
+      create: true
+      relink: true
+      force: true
+    ~/.gitignore_global: home_files/git/gitignore_global

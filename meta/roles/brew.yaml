@@ -1,0 +1,33 @@
+- shell:
+    -
+     command: helpers/brew_setup.sh # Brew initialisation
+     stdout: true
+     stdin: true
+     stderr: true
+
+- tap:
+    #- homebrew/versions
+    - homebrew/core
+
+    # Install casks
+    - caskroom/cask
+    - caskroom/versions
+    - caskroom/fonts
+
+- brew:
+    - coreutils     # Install GNU core utilities (those that come with OS X are outdated).
+    - findutils # Install GNU `find`, `locate`, `updatedb`, and `xargs`, `g`-prefixed.
+    - gnu-sed  # Install GNU `sed`
+    - wget # Install `wget`
+
+    - homebrew/dupes/grep # Install more recent versions of some OS X tools.
+    - openssh # Install more recent version of ssh
+
+    # Install other useful binaries.
+    - imagemagick
+    - nmap
+    - bat
+
+- cask:
+    - google-chrome
+    - vlc

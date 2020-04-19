@@ -1,0 +1,10 @@
+- bash: ~
+- gitprompt: ~
+- editor: ~
+- inputrc: ~
+- vim: ~
+- tmux: ~
+- docker: ~
+- docker_container: ~
+- python: ~
+- git: ~

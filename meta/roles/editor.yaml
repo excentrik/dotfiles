@@ -1,0 +1,6 @@
+- shell:
+  -
+    command: helpers/editor_setup.sh
+    stdout: true
+    stdin: true
+    stderr: true

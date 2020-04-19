@@ -1,0 +1,18 @@
+- clean:
+    ~/.zshrc:
+      force: true
+
+- shell:
+  -
+    command: helpers/ohmyzsh_setup.sh
+    stdout: true
+    stdin: true
+    stderr: true
+
+- link:
+    ~/.zshrc:
+      path: home_files/.ohmyzshrc
+      create: true
+      relink: true
+      force: true
+      backup: true
