@@ -1,6 +1,7 @@
 [submodule "dotbot"]
 	path = dotbot
 	url = https://github.com/anishathalye/dotbot
+	ignore = dirty
 [submodule "oh-my-zsh"]
 	path = oh-my-zsh
 	url = git://github.com/robbyrussell/oh-my-zsh.git
@@ -10,3 +11,6 @@
 [submodule "zsh/zsh_files/zsh-completions"]
 	path = zsh/zsh_files/zsh-completions
 	url = git://github.com/zsh-users/zsh-completions.git
+[submodule "dotbot-brew"]
+	path = dotbot-brew
+	url = git@github.com:d12frosted/dotbot-brew.git
