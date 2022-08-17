@@ -55,3 +55,13 @@ unset BASH_FILES;
 unset file;
 
 test -e "${HOME}/.iterm2_shell_integration.bash" && export ITERM2_SQUELCH_MARK=1 && source "${HOME}/.iterm2_shell_integration.bash"
+
+if [ -d "${HOME}/.volta" ]; then
+  export VOLTA_HOME="$HOME/.volta"
+  export PATH="$VOLTA_HOME/bin:$PATH"
+fi
+
+# Remove any duplicates from the path. It keeps the first element it finds
+PATH=$(echo ${PATH} | /usr/bin/awk -v RS=: -v ORS=: '!($0 in a) {a[$0]; print}')
+PATH="${PATH%:}"    # remove trailing colon
+export PATH

@@ -165,9 +165,9 @@ fi
 #         bindkey "^[[7~" beginning-of-line #Home key
 #         bindkey "^[[8~" end-of-line #End key
 #         bindkey "^[[A" history-beginning-search-backward #Up Arrow
-#         bindkey "^[[B" history-beginning-search-forward #Down Arrow        
+#         bindkey "^[[B" history-beginning-search-forward #Down Arrow
 #     ;;
-# 
+#
 #     linux)
 #         bindkey "^[[1~" beginning-of-line #Home key
 #         bindkey "^[[4~" end-of-line #End key
@@ -175,7 +175,7 @@ fi
 #         bindkey "^[[A" history-beginning-search-backward
 #         bindkey "^[[B" history-beginning-search-forward
 #     ;;
-# 
+#
 #     screen|screen-*)
 #         bindkey "^[[1~" beginning-of-line #Home key
 #         bindkey "^[[4~" end-of-line #End key
@@ -219,3 +219,11 @@ unset ZSH_FILES;
 unset file;
 
 test -e "${HOME}/.iterm2_shell_integration.zsh" && export ITERM2_SQUELCH_MARK=1 && source "${HOME}/.iterm2_shell_integration.zsh"
+if [ -d "${HOME}/.volta" ]; then
+  export VOLTA_HOME="$HOME/.volta"
+  export PATH="$VOLTA_HOME/bin:$PATH"
+fi
+# Remove any duplicates from the path. It keeps the first element it finds
+PATH=$(echo ${PATH} | /usr/bin/awk -v RS=: -v ORS=: '!($0 in a) {a[$0]; print}')
+PATH="${PATH%:}"    # remove trailing colon
+export PATH

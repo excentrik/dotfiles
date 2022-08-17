@@ -8,8 +8,5 @@ if ! [[ -z ${HOME} || "${PATH}" =~ ^${HOME}/bin ]]; then
     PATH="${HOME}/bin:${PATH}"
 fi
 PATH=".:${PATH}"
-
-# Remove any duplicates from the path. It keeps the first element it finds
-PATH=$(printf "%s" "$PATH" | awk -v RS=':' '!a[$1]++ { if (NR > 1) printf RS; printf $1 }')
 export PATH
 
