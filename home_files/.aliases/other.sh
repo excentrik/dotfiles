@@ -89,9 +89,11 @@ list_dotfiles_functions() {
   local OUTPUT=""
   local COMMENT
   OUTPUT="$(while read -r CMD; do
-      COMMENT=$(grep -h -R -B 1 "${CMD}() {" ${HOME}/.aliases/* | grep --colour='never' "# ")
+      COMMENT=$(find -L ${HOME}/.aliases/* -exec readlink -f {} \; | xargs grep -h -B 1 "${CMD}() {" | grep --colour='never' "# ")
+      # remove leading whitespace characters
+      COMMENT="${COMMENT#"${COMMENT%%[![:space:]]*}"}"
       [[ -z $COMMENT ]] && continue
-      echo "${CMD}" $'\t' "${COMMENT}"
+      printf "%-65s %s\n" "${CMD}" "${COMMENT}"
   done <<< "$(declare -f | egrep "^[a-zA-Z].*" | cut -d' ' -f1 | grep -v "^declare")")"
 
   OUTPUT+=$'\n'
@@ -101,18 +103,22 @@ list_dotfiles_functions() {
   local ALIAS
   OUTPUT+="$(while read -r CMD; do
     if [ ${SHOW_SYSTEM_COMMANDS} = false ] ; then
-      if [[ -n $(type -a $CMD | grep -v alias) ]]; then
+      if [[ -n $(type -a $CMD 2>/dev/null | grep -v alias) ]]; then
         continue
       fi
     fi
     _contains_element "${CMD}" "${EXCLUDED_ALIASES[@]}" && continue
     ALIAS=$(alias "${CMD}" | sed -e "s/^alias //")
-    COMMENT=$(grep -h -R -B 1 "alias ${CMD}=" ${HOME}/.aliases/* ${HOME}/.profile ${HOME}/.extra | grep --colour='never' "# " | head -1 | xargs)
+
+    COMMENT=$(find -L ${HOME}/.aliases/* ${HOME}/.profile ${HOME}/.extra -exec readlink -f {} \; | xargs grep -h -B 1 "alias ${CMD}=" | grep --colour='never' "# " | head -1 | xargs)
+
+    # remove leading whitespace characters
+    COMMENT="${COMMENT#"${COMMENT%%[![:space:]]*}"}"
     [[ -z $COMMENT ]] && continue
     if [ ${FULL_DESCRIPTION} = true ] ; then
-      echo "${ALIAS}" $'\t' "${COMMENT}"
+      printf "%-65s %s\n" "${ALIAS}" "${COMMENT}"
     else
-      echo "${CMD}" $'\t' "${COMMENT}"
+      printf "%-65s %s\n" "${CMD}" "${COMMENT}"
     fi
   done <<< "$(alias | cut -d"=" -f1 | cut -d' ' -f2)")"
 
