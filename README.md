@@ -82,30 +82,35 @@ See `LICENSE.md` for details.
 
 ## Commands available
 
+Run `list_dotfiles_functions` to get a list of available commands:
+
 ```bash
-confirm 	 # Confirmation wrapper. Usage: confirm rm -rf /tmp/folder
-dot_progress 	 # Fancy progress function from Landley's Aboriginal Linux. Usage: rm -rfv /foo | dot_progress
-escape 	 # Uber useful when you need to translate a weird path into single-argument string.
-extract 	 # Extra many types of compressed packages
-fs 	 # Determine size of a file or total size of a directory
-getHostIp 	 # Get the IP of the host inside a Docker container
-get_ip_address 	 # Get the IP address of a known host. Usage: get_ip_address github.com
-get_ssh_hosts 	 # Get a list of all known ssh hosts
-is_running_inside_container 	 # Detect if this command is running inside a docker container
-kill_processes 	 # Kill all process that match the arguments
-la='command ls -laF ${colorflag}' 	 # List all files colorized in long format, including dot files
-list_dotfiles_functions 	 # List all function available in a shell
-list_open_tunnels 	 # Function to show all open ssh connections/tunnels
-ll='ls -lv --group-directories-first' 	 # Alias to use GNU ls and print directories first, with alphanumeric sorting
-load_aliases 	 # Function that loads all bash aliases. Can be used in non-interactive mode
-mkd 	 # Create a new directory and enter it
-prettyjson='python -m json.tool' 	 # Pretty print json. Usage: echo '{"foo": "lorem", "bar": "ipsum"}' | prettyjson
-pyclean 	 # Clean all python cache files (works for both py2 and py3)
-reload 	 # Reload the shel
-run_under_tmux 	 # Run $1 under session or attach if such session already exist. Example usage: run_under_tmux 'rtorrent' '/usr/local/rtorrent-git/bin/rtorrent';
-shell_is_interactive 	 # Checks if shell is interactive
-ssh_to_address 	 # Ssh to a specific host from the list of available hosts using the username define in $GITLAB_USERNAME. Usage: ssh_to_address dev-london.rohea.com
-timer 	 # Stopwatch to count execution time for a command. Usage example: timer ls -la
-tsh 	 # Open a tmux terminal inside an ssh session. Usage: tsh <hostname> {session_name}
-update_dotfiles 	 # Update and install latest dotfiles version
-urlencode='python -c "import sys, urllib as ul; print ul.quote_plus(sys.argv[1]);"' 	 # URL-encode strings
+cleanup_ds                                                        # Recursively delete `.DS_Store` files under the current path
+confirm                                                           # Confirmation wrapper. Usage: confirm rm -rf /tmp/folder
+dot_progress                                                      # Fancy progress function from Landley's Aboriginal Linux. Usage: rm -rfv /foo | dot_progress
+escape                                                            # Uber useful when you need to translate a weird path into single-argument string.
+external_ip                                                       # Get external IP address
+extract                                                           # Extra many types of compressed packages
+fs                                                                # Determine size of a file or total size of a directory
+kill_processes                                                    # Kill all process that match a pattern (`kill_processes ssh` kills all processes that contain ssh in their CMD string
+la                                                                # List all files colorized in long format, including dot files
+list_dotfiles_functions                                           # List all function available in a shell
+ll                                                                # Alias to use GNU ls and print directories first, with alphanumeric sorting
+man                                                               # Enable coloured manuals
+manpdf                                                            # Open man page as PDF
+mkd                                                               # Create a new directory and enter it
+msh                                                               # Open a tmux terminal inside a mosh session. Usage: msh <hostname> {session_name}
+prettyjson                                                        # Pretty print json. Usage: echo {"foo": "lorem", "bar": "ipsum"} | prettyjson
+pyclean                                                           # Clean all python cache files (works for both py2 and py3)
+reload                                                            # Reload the shel
+report_local_port_forwardings                                     # Display all local port forwarding tunnels
+report_remote_port_forwardings                                    # Display all remote port forwarding tunnels
+run_under_tmux                                                    # Run $1 under session or attach if such session already exist. Example usage: run_under_tmux 'rtorrent' '/usr/local/rtorrent-git/bin/rtorrent';
+shell_is_interactive                                              # Checks if shell is interactive
+targz                                                             # Create a .tar.gz archive, using `zopfli`, `pigz` or `gzip` for compression
+timer                                                             # Stopwatch to count execution time for a command. Usage example: timer ls -la
+title                                                             # Set terminal titles in OSX
+tsh                                                               # Open a tmux terminal inside an ssh session. Usage: tsh <hostname> {session_name}
+update_dotfiles                                                   # Update and install latest dotfiles version
+urlencode                                                         # URL-encode strings
+```
