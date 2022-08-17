@@ -204,12 +204,8 @@ function tsh() {
         session_name=${USER}
         echo "No session name provided. Defaulting to \"$session_name\""
     fi
-    OPTIONS=""
-    #if [[ -n "$TERM_PROGRAM" && "$TERM_PROGRAM" = "iTerm.app" ]]; then
-    #   OPTIONS="-CC"
-    #fi
     # shellcheck disable=SC2046
-    ssh -A "${host}" "${@:3}" -t "tmux $OPTIONS new-session -A -s $session_name"
+    ssh -o RequestTTY=yes -A "${host}" "${@:3}" -t "tmux new-session -A -s $session_name"
 }
 
 
@@ -223,6 +219,22 @@ function list_open_tunnels() {
     return $?
   fi
   echo "In order to run this command you need either netstat or ss installed locally"
+}
+
+# Open a tmux terminal inside a mosh session. Usage: msh <hostname> {session_name}
+function msh() {
+    local host=$1
+    if [[ -z "$host" ]]; then
+        echo "Need to provide the hostname to connect to. Usage: msh <hostname>"
+        return 1
+    fi
+    session_name=$2
+    if [[ -z "$session_name" ]]; then
+        session_name=${USER}
+        echo "No session name provided. Defaulting to \"$session_name\""
+    fi
+    # shellcheck disable=SC2046
+    mosh --ssh="ssh -A" "${host}" -- tmux new-session -A -s $session_name
 }
 
 report_local_port_forwardings() {
