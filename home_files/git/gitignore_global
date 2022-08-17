@@ -19,6 +19,8 @@ Thumbs.db
 *.swp
 *~
 .idea
+.remote*
+.shelf
 
 # Compiled source #
 ###################
@@ -30,6 +32,6 @@ Thumbs.db
 *.so
 *.pyc
 *.pyo
-
+*.egg-info/
 
 

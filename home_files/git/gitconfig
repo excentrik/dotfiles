@@ -1,15 +1,17 @@
 [core]
-    excludesfile = $HOME/.gitignore_global
+    excludesfile = ~/.gitignore_global
     filemode = false
     ignorecase = true
     preloadindex = true
     autocrlf = input
+    pager = less -F -X
 
 [log]
     date = iso
 
 [push]
-    default = simple
+    # Upstream pushes to the upstream branch, no matter what it is called.
+    default = upstream
 
 [pull]
     ff = true
@@ -25,6 +27,7 @@
     lg = log -p
     s = status --short
     l = log --color --graph --pretty=format:'%C(yellow)%h%Creset%C(bold green)%d%Creset %s %Creset'
+    amend = "!git commit -a --amend --no-edit --date=\"$(date +%Y-%m-%dT%H:%M:%S)\""
     cleanupremotes = "!git remote | xargs -I % -n 1 git fetch % --prune"
     cleanuplocal = "!git branch --merged | grep -v '\\*\\|master\\|develop' | xargs -n 1 git branch -d"
     cleanup = "!git cleanupremotes && git cleanuplocal"
@@ -34,8 +37,8 @@
     tar = ! "tar() { git archive --format tar --prefix=\"${PWD##*/}/\" HEAD -o ${1}; }; tar"
     targz = ! "targz() { git archive --format tar.gz --prefix=\"${PWD##*/}/\" HEAD -o ${1}; }; targz"
     zip = ! "zip() { git archive --format zip --prefix=\"${PWD##*/}/\" HEAD -o ${1}; }; zip"
-	oldest-ancestor = !bash -c 'diff -u <(git rev-list --first-parent \"${1:-master}\") <(git rev-list --first-parent \"${2:-HEAD}\") | sed -ne \"s/^ //p\" | head -1' -
-	changed = ! "func() { git status -s | awk '{$1=$1};1' | grep -E '^[AM]{1,2}\\s.*$' | cut -d' ' -f2;  }; func"
+    oldest-ancestor = !bash -c 'diff -u <(git rev-list --first-parent \"${1:-master}\") <(git rev-list --first-parent \"${2:-HEAD}\") | sed -ne \"s/^ //p\" | head -1' -
+    changed = ! "func() { git status -s | awk '{$1=$1};1' | grep -E '^[AM]{1,2}\\s.*$' | cut -d' ' -f2;  }; func"
 
 [diff]
     mnemonicPrefix = true
@@ -65,6 +68,7 @@
 
 [advice]
     detachedHead = false
+	  skippedCherryPicks = false
 
 [rebase]
     autoStash = true
