@@ -273,3 +273,12 @@ function report_remote_port_forwardings() {
 
   echo "$REMOTE_PORTS_FORWARDED"
 }
+
+# Kill all process that match a pattern (`kill_processes ssh` kills all processes that contain ssh in their CMD string
+function kill_processes() {
+    pattern="${*}"
+    if [ ! -z "$(pgrep -f -- "${pattern}")" ]; then
+        echo pkill -f -- "$pattern"
+        sleep 0.1
+    fi
+}

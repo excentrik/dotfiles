@@ -98,12 +98,3 @@ if [ -x "$(command -v prettyping)" ]; then
   # prettyping gives ping a really nice output and makes the command line a bit more welcoming
   alias ping='prettyping --nolegend'
 fi
-
-# Kill all process that match a pattern (`kill_processes ssh` kills all processes that contain ssh in their CMD string
-kill_processes() {
-    pattern="${*}"
-    if [ ! "$(pgrep -c -f -- "${pattern}")" -eq 0 ]; then
-        pkill -f -- "$pattern"
-        sleep 0.1
-    fi
-}

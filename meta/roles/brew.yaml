@@ -19,6 +19,7 @@
     - findutils # Install GNU `find`, `locate`, `updatedb`, and `xargs`, `g`-prefixed.
     - gnu-sed  # Install GNU `sed`
     - wget # Install `wget`
+    - proctools # Install GNU version of `pgrep`, `pkill` and  `pfind`
 
     - homebrew/dupes/grep # Install more recent versions of some OS X tools.
     - openssh # Install more recent version of ssh
