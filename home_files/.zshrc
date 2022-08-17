@@ -214,11 +214,11 @@ for file in ~/.zsh_prompt ~/.startup ~/.extra; do
        [ -r "$file" ] && [ -f "$file" ] && source "$file";
        ZSH_FILES+=" ${file}";
 done;
+test -e "${HOME}/.iterm2_shell_integration.zsh" && export ITERM2_SQUELCH_MARK=1 && source "${HOME}/.iterm2_shell_integration.zsh"
 [[ -z ${HUSH} && ! -f ${HOME}/.hushlogin ]] && echo "Sourced files ${ZSH_FILES}"
 unset ZSH_FILES;
 unset file;
 
-test -e "${HOME}/.iterm2_shell_integration.zsh" && export ITERM2_SQUELCH_MARK=1 && source "${HOME}/.iterm2_shell_integration.zsh"
 if [ -d "${HOME}/.volta" ]; then
   export VOLTA_HOME="$HOME/.volta"
   export PATH="$VOLTA_HOME/bin:$PATH"
