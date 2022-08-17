@@ -208,19 +208,6 @@ function tsh() {
     ssh -o RequestTTY=yes -A "${host}" "${@:3}" -t "tmux new-session -A -s $session_name"
 }
 
-
-# Function to show all open ssh connections/tunnels
-function list_open_tunnels() {
-  if [ -x "$(command -v ss)" ]; then
-    ss -tulpn | grep ssh
-    return $?
-  elif [ -x "$(command -v netstat)" ]; then
-    netstat -tulpn 2>/dev/null | grep ssh
-    return $?
-  fi
-  echo "In order to run this command you need either netstat or ss installed locally"
-}
-
 # Open a tmux terminal inside a mosh session. Usage: msh <hostname> {session_name}
 function msh() {
     local host=$1
@@ -237,7 +224,8 @@ function msh() {
     mosh --ssh="ssh -A" "${host}" -- tmux new-session -A -s $session_name
 }
 
-report_local_port_forwardings() {
+# Display all local port forwarding tunnels
+function report_local_port_forwardings() {
 
   # -a ands the selection criteria (default is or)
   # -i4 limits to ipv4 internet files
@@ -269,7 +257,8 @@ report_local_port_forwardings() {
 
 }
 
-report_remote_port_forwardings() {
+# Display all remote port forwarding tunnels
+function report_remote_port_forwardings() {
 
   REMOTE_PORTS_FORWARDED=`ps -f -p $(lsof -t -a -i -c '/^ssh$/' -u$USER -s TCP:ESTABLISHED) | awk 'NR == 1 || /R (\S+:)?[[:digit:]]+:\S+:[[:digit:]]+.*/'`
   if [[ -n "${REMOTE_PORTS_FORWARDED// /}" ]]; then
