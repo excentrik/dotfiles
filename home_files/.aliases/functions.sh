@@ -205,11 +205,11 @@ function tsh() {
         echo "No session name provided. Defaulting to \"$session_name\""
     fi
     OPTIONS=""
-    if [[ -n "$TERM_PROGRAM" && "$TERM_PROGRAM" = "iTerm.app" ]]; then
-       OPTIONS="-CC"
-    fi
+    #if [[ -n "$TERM_PROGRAM" && "$TERM_PROGRAM" = "iTerm.app" ]]; then
+    #   OPTIONS="-CC"
+    #fi
     # shellcheck disable=SC2046
-    ssh $(_base_ssh_options "${host}") "${host}" "${@:3}" -t "tmux $OPTIONS new-session -A -s $session_name \; set -g mouse on \;"
+    ssh -A "${host}" "${@:3}" -t "tmux $OPTIONS new-session -A -s $session_name"
 }
 
 
