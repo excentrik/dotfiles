@@ -34,7 +34,7 @@
     command: git config --global credential.helper osxkeychain
     stdout: true
     stdin: true
-    stderr: true    
+    stderr: true
   - [mkdir -p ~/Downloads, Creating downloads directory]
   - [mkdir -p ~/Projects, Creating projects directory]
   - [mkdir -p ~/Pictures/Screenshots, Creat screenshots directory]
@@ -49,17 +49,17 @@
     stdout: true
     stdin: true
     stderr: true
-  - 
+  -
     command: system/osxdefaults.sh # Change some system defaults
     stdout: true
     stdin: true
-    stderr: true    
-  - 
+    stderr: true
+  -
     command: system/brew.sh # Install brew packages
     stdout: true
     stdin: true
     stderr: true
-  - 
+  -
     command: chsh -s /usr/local/bin/zsh # Change to zsh
     stdout: true
     stdin: true

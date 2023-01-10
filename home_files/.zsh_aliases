@@ -6,6 +6,7 @@
 #-------------------
 if [ -d "$HOME/.aliases" ]; then
   for file in "$HOME/.aliases"/*.sh; do
+      # shellcheck disable=SC1090
       [ -r "$file" ] && [ -f "$file" ] && emulate sh -c "source ${file}" && ALIASES_FILES+=" ${file}";
   done;
   [[ -z ${HUSH} && ! -f ${HOME}/.hushlogin ]] && echo "Sourced aliases files ${ALIASES_FILES}"
