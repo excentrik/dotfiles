@@ -7,7 +7,6 @@
 - inputrc: ~
 - vim: ~
 - tmux: ~
-- osx: ~
 - brew: ~
-- docker: ~
+- osx: ~
 - submodules: ~
