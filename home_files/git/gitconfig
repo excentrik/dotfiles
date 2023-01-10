@@ -16,6 +16,7 @@
 [pull]
     ff = true
     rebase = true
+    autostash = true
 
 [merge]
     ff = false
@@ -72,6 +73,9 @@
 
 [rebase]
     autoStash = true
+
+[branch]
+    autosetuprebase = always
 
 # Allow local customizations in the .gitconfig_local file
 [include]
