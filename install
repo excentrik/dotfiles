@@ -58,9 +58,18 @@ done < "${META_DIR}/${PROFILES_DIR}/${_ENV}${CONFIG_SUFFIX}"
 
 shift
 
-"${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin-dir dotbot-brew -c "${META_DIR}/${BASE_CONFIG}${CONFIG_SUFFIX}"
+_dotbot="${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN} -d ${BASE_DIR} --plugin-dir dotbot-brew"
+
+$_dotbot -c "${META_DIR}/${BASE_CONFIG}${CONFIG_SUFFIX}"
+
+if [ $? -ne 0 ]; then
+  exit 1
+fi
 
 for config in ${CONFIGS} ${@}; do
-    #echo -e "Configured $config"
-    "${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin-dir dotbot-brew -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}"
+    $_dotbot -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}"
+    if [ $? -ne 0 ]; then
+      exit 1
+    fi
+    echo -e "Configured $config"
 done
