@@ -17,5 +17,5 @@ BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${BASE_DIR}"
 
 for config in ${@}; do
-    "${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin-dir dotbot-brew -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}"
+    "${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin-dir dotbot-brew -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}" --verbose
 done
