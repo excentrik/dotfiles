@@ -1,0 +1,2 @@
+- shell:
+  - [touch ~/.hushlogin, Creating hush file]
