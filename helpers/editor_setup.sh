@@ -33,7 +33,7 @@ if [[ -z "${EDITOR}" && -z "${DOTFILES_NO_INTERACTIVE}" ]] ; then
 
     if [ -z "${EDITOR}" ] ; then
         bash -c "echo -n 'Enter your preferred editor ([vi]/nano) and press [ENTER]: '"
-        read EDITOR
+        read EDITOR || true
     fi
 fi
 EDITOR="${EDITOR:-vi}"

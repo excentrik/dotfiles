@@ -115,13 +115,13 @@ dot_progress() {
     printf '\n'
 }
 
-# Run $1 under session or attach if such session already exist. Example usage: run_under_tmux 'rtorrent' '/usr/local/rtorrent-git/bin/rtorrent';
+# Run $1 under session or attach if such session already exist. Example usage: run_under_tmux 'htop';
 run_under_tmux() {
     # $2 is optional path, if no specified, will use $1 from $PATH.
     # If you need to pass extra variables, use $2 for it as in example below..
     # More examples:
-    #   mutt() { run_under_tmux 'mutt'; }
-    #   irc() { run_under_tmux 'irssi' "TERM='screen' command irssi"; }
+    #   htop() { run_under_tmux 'htop'; }
+    #   watch_logs() { run_under_tmux 'logs' "tail -f /var/log/syslog"; }
     command -v tmux >/dev/null 2>&1 || return 1
 
     if [ -z "$1" ]; then return 1; fi

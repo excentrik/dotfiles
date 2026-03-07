@@ -38,7 +38,8 @@ _list_dotfiles_functions_options()
 {
     local cur opts
     COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"prev
+    cur="${COMP_WORDS[COMP_CWORD]}"
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
     opts="--help -h --full -f"
 
     if [[ ${cur} == -* ]] ; then
