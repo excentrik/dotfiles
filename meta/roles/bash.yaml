@@ -1,8 +1,9 @@
 - defaults:
     link:
       create: true
-      relink: false
+      relink: true
       force: false
+      backup: true
 
 - link:
     ~/.bash_aliases: home_files/.bash_aliases
