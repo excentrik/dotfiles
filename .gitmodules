@@ -4,13 +4,10 @@
 	ignore = dirty
 [submodule "oh-my-zsh"]
 	path = oh-my-zsh
-	url = git://github.com/robbyrussell/oh-my-zsh.git
-[submodule "zsh/plugins/zsh-completions"]
-	path = zsh/zsh_files/zsh-completions
-	url = https://github.com/zsh-users/zsh-completions
+	url = https://github.com/robbyrussell/oh-my-zsh.git
 [submodule "zsh/zsh_files/zsh-completions"]
 	path = zsh/zsh_files/zsh-completions
-	url = git://github.com/zsh-users/zsh-completions.git
+	url = https://github.com/zsh-users/zsh-completions
 [submodule "dotbot-brew"]
 	path = dotbot-brew
-	url = git@github.com:d12frosted/dotbot-brew.git
+	url = https://github.com/d12frosted/dotbot-brew.git
