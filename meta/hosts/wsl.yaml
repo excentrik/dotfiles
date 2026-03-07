@@ -1,11 +1,9 @@
 - bash: ~
 - gitprompt: ~
 - editor: ~
-- php: ~
 - inputrc: ~
 - vim: ~
 - tmux: ~
-- docker: ~
-- docker_container: ~
 - python: ~
 - git: ~
+- claude: ~
