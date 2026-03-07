@@ -7,6 +7,11 @@ PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:$PATH
 if ! [[ -z ${HOME} || "${PATH}" =~ ^${HOME}/bin ]]; then
     PATH="${HOME}/bin:${PATH}"
 fi
+
+# Add ~/.local/bin to PATH if it exists
+if [ -d "$HOME/.local/bin" ]; then
+    PATH="$HOME/.local/bin:$PATH"
+fi
 PATH=".:${PATH}"
 export PATH
 
