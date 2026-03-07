@@ -1,6 +1,6 @@
 # Dotfiles
 
-Dotfile management using [Dotbot](https://github.com/anishathalye/dotbot). (Note: `install.conf.yaml` in the repo root is legacy and not used by `./install`.)
+Dotfile management using [Dotbot](https://github.com/anishathalye/dotbot). For directory layout, adding hosts/roles, and script reference, see [STRUCTURE.md](STRUCTURE.md). (Note: `install.conf.yaml` in the repo root is legacy and not used by `./install`.)
 
 Brief introduction to dotfiles:
 * [Getting started with dotfiles](https://medium.com/@webprolific/getting-started-with-dotfiles-43c3602fd789)
