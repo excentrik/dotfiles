@@ -1,0 +1,9 @@
+- link:
+    ~/.aliases/claude.sh: home_files/.aliases/claude.sh
+
+- shell:
+  -
+    command: helpers/claude_setup.sh
+    stdout: true
+    stdin: true
+    stderr: true
