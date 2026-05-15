@@ -52,6 +52,7 @@ This document describes how the repo is organized and how to extend it. For inst
 | vim_plugin_install.sh | Installs Vim plugins (role: vim_plugins) |
 | node_setup.sh | Node environment setup (if used by a role) |
 | osx_setup.sh | OS X–specific setup (if used by a role) |
+| validate.sh | Non-mutating validation checks for scripts, role links, and Dotbot dry-runs |
 
 ### system/
 

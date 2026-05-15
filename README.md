@@ -47,6 +47,20 @@ If you don't want dotfiles to ask for any user input, you can use the `DOTFILES_
 
 You can run these installation commands safely multiple times, if you think that helps with better installation.
 
+## Validation
+
+Run non-mutating validation checks before changing install scripts or role metadata:
+
+```bash
+~/.dotfiles$ helpers/validate.sh
+```
+
+By default, validation checks Linux/WSL-oriented hosts (`unix`, `wsl`, and `docker`). To include every role, including macOS, zsh, and Mongo roles:
+
+```bash
+~/.dotfiles$ helpers/validate.sh --all-roles
+```
+
 ## Loading source files
 
 In order to load the dotfiles, you need to run:
