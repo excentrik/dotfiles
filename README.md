@@ -115,7 +115,7 @@ escape                                                            # Uber useful 
 external_ip                                                       # Get external IP address
 extract                                                           # Extra many types of compressed packages
 fs                                                                # Determine size of a file or total size of a directory
-kill_processes                                                    # Kill all process that match a pattern (`kill_processes ssh` kills all processes that contain ssh in their CMD string
+kill_processes                                                    # Kill processes matching a pattern after confirmation. Usage: kill_processes ssh
 la                                                                # List all files colorized in long format, including dot files
 list_dotfiles_functions                                           # List all function available in a shell
 ll                                                                # Alias to use GNU ls and print directories first, with alphanumeric sorting

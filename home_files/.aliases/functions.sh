@@ -260,8 +260,16 @@ function report_local_port_forwardings() {
 # Display all remote port forwarding tunnels
 function report_remote_port_forwardings() {
 
-  REMOTE_PORTS_FORWARDED=`ps -f -p $(lsof -t -a -i -c '/^ssh$/' -u$USER -s TCP:ESTABLISHED) | awk 'NR == 1 || /R (\S+:)?[[:digit:]]+:\S+:[[:digit:]]+.*/'`
-  if [[ -n "${REMOTE_PORTS_FORWARDED// /}" ]]; then
+  local SSH_PIDS
+  SSH_PIDS=$(lsof -t -a -i -c '/^ssh$/' -u"$USER" -s TCP:ESTABLISHED || true)
+  if [[ -z "${SSH_PIDS// /}" ]]; then
+    echo "No remote port forwardings found"
+    return 0
+  fi
+
+  local REMOTE_PORTS_FORWARDED
+  REMOTE_PORTS_FORWARDED=$(ps -f -p "$(echo "$SSH_PIDS" | paste -sd, -)" | awk 'NR == 1 { header = $0; next } /R ([^[:space:]]+:)?[[:digit:]]+:[^[:space:]]+:[[:digit:]]+.*/ { if (!printed) { print header; printed = 1 } print }')
+  if [[ -z "${REMOTE_PORTS_FORWARDED// /}" ]]; then
     echo "No remote port forwardings found"
     return 0
   fi
@@ -274,11 +282,22 @@ function report_remote_port_forwardings() {
   echo "$REMOTE_PORTS_FORWARDED"
 }
 
-# Kill all process that match a pattern (`kill_processes ssh` kills all processes that contain ssh in their CMD string
+# Kill processes matching a pattern after confirmation. Usage: kill_processes ssh
 function kill_processes() {
-    pattern="${*}"
-    if [ ! -z "$(pgrep -f -- "${pattern}")" ]; then
-        echo pkill -f -- "$pattern"
-        sleep 0.1
+    local pattern="${*}"
+    if [ -z "$pattern" ]; then
+        echo "Usage: kill_processes <pattern>"
+        return 1
     fi
+
+    local PIDS
+    PIDS=$(pgrep -f -- "${pattern}" || true)
+    if [ -z "${PIDS}" ]; then
+        echo "No processes matching '${pattern}'"
+        return 0
+    fi
+
+    echo "Matching processes:"
+    ps -f -p "$(echo "$PIDS" | paste -sd, -)"
+    confirm pkill -f -- "$pattern"
 }

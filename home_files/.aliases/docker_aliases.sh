@@ -32,23 +32,23 @@ if [ -x "$(command -v docker)" ]; then
   alias dex="${__docker} exec -i -t"
 
   # Stop all containers
-  alias dstop="${__docker}"' stop $(${_docker} ps -a -q)'
+  alias dstop="${__docker} stop \$(${__docker} ps -a -q)"
 
   # Remove all containers
-  alias drm="${__docker}"' rm $(${_docker} ps -a -q) -f'
+  alias drm="${__docker} rm \$(${__docker} ps -a -q) -f"
 
   # Stop and remove all containers
-  alias drmf="${__docker}"' stop $(${_docker} ps -a -q) && ${_docker} rm $(${_docker} ps -a -q)'
+  alias drmf="${__docker} stop \$(${__docker} ps -a -q) && ${__docker} rm \$(${__docker} ps -a -q)"
 
   # Remove all docker images
-  alias dri="${__docker}"' rmi $(${_docker} images -q -a) -f'
+  alias dri="${__docker} rmi \$(${__docker} images -q -a) -f"
 
-  # Print ${_docker} logs
+  # Print docker logs
   alias dkl="${__docker}"' logs'
 
   # Attach into php-nginx
   eval "function dcdev() {
-    if [[ ! \$(is_running_inside_container) ]]; then
+    if [[ \"\$(is_running_inside_container)\" == '1' ]]; then
       echo 'You cannot connect to a container from inside another container'
       return 1
     fi
