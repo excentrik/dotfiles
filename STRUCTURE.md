@@ -13,6 +13,7 @@ This document describes how the repo is organized and how to extend it. For inst
 | **helpers/** | Setup scripts run by Dotbot when roles are installed |
 | **system/** | OS-specific scripts (Homebrew list, OS X defaults) |
 | **dotbot**, **dotbot-brew** | Git submodules: Dotbot and its Homebrew plugin |
+| **AGENTS.md** | Shared AI-assistant repository instructions |
 
 **Note:** `install.conf.yaml` at the repo root is **not** used by `./install`. The installer uses only `meta/base.yaml` and `meta/roles/*.yaml`. It is legacy/OSX-oriented and can be removed or kept for reference.
 

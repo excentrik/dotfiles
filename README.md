@@ -92,15 +92,6 @@ To add a custom  behaviour to your shell, such as personal aliases, etc:
 ~/$ source .extra # To load .extra for current shell
 ```
 
-## TODO
-
-  - Implement OSX packages (xcode)
-  - Windows ???
-  - install roles according to host (osx - use brew to install packages, unix - use apt-get)
-  - Make sure backups are done correctly
-  - Add a copy plugin to dotbot
-  - First time starting vi opens two buffer windows
-
 ## License
 
 See `LICENSE.md` for details.
