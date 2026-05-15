@@ -50,6 +50,8 @@ If you don't want dotfiles to ask for any user input, you can use the `DOTFILES_
 
 You can run these installation commands safely multiple times, if you think that helps with better installation.
 
+`./install` updates submodules to the commits recorded by this repository by default. To intentionally update submodules from their upstream remotes before installing, set `DOTFILES_UPDATE_SUBMODULES=1`.
+
 ## Validation
 
 Run non-mutating validation checks before changing install scripts or role metadata:

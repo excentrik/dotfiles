@@ -112,8 +112,18 @@ parse_dotbot_args "$@"
 echo "Installing dotfiles for host type ${_ENV}"
 if has_dry_run "${DOTBOT_ARGS[@]}"; then
   echo "Dry-run requested; skipping submodule update"
-elif ! git submodule update --init --recursive --remote; then
-  exit 1
+else
+  submodule_args=(--init --recursive)
+  if [ "${DOTFILES_UPDATE_SUBMODULES:-}" = "1" ]; then
+    submodule_args+=(--remote)
+    echo "Updating submodules from upstream remotes"
+  else
+    echo "Updating submodules to recorded commits"
+  fi
+
+  if ! git submodule update "${submodule_args[@]}"; then
+    exit 1
+  fi
 fi
 
 while IFS= read -r config; do
