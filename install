@@ -1,29 +1,7 @@
 #!/usr/bin/env bash
 # Install dotfiles for current or given host. See STRUCTURE.md for layout and roles.
 
-_ENV=$1
-if [ -z $_ENV ] ; then
-  # Default to current OSTYPE
-  case "$OSTYPE" in
-    darwin*)
-        _ENV="osx" ;;
-    linux*)
-        _ENV="unix"
-        if grep docker /proc/1/cgroup -qa; then
-          _ENV="docker"
-        elif grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null ; then
-          # Assume Windows WSL
-          _ENV="wsl"
-        fi
-        ;;
-     msys)
-       _ENV="gitbash"
-       ;;
-    *)        echo "unknown platform: $OSTYPE. Aborting" && exit 1 ;;
-  esac
-fi
-
-
+set -e
 
 BASE_CONFIG="base"
 CONFIG_SUFFIX=".yaml"
@@ -38,34 +16,120 @@ DOTBOT_BIN="bin/dotbot"
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${BASE_DIR}"
 
+detect_host() {
+  case "$OSTYPE" in
+    darwin*)
+      echo "osx"
+      ;;
+    linux*)
+      if grep docker /proc/1/cgroup -qa; then
+        echo "docker"
+      elif grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null; then
+        echo "wsl"
+      else
+        echo "unix"
+      fi
+      ;;
+    msys)
+      echo "gitbash"
+      ;;
+    *)
+      echo "unknown platform: $OSTYPE. Aborting" >&2
+      return 1
+      ;;
+  esac
+}
+
+parse_dotbot_args() {
+  local -n _roles_ref=$1
+  local -n _dotbot_args_ref=$2
+  shift 2
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --only|--except)
+        _dotbot_args_ref+=("$1")
+        shift
+        while [ "$#" -gt 0 ] && [[ "$1" != -* ]]; do
+          _dotbot_args_ref+=("$1")
+          shift
+        done
+        ;;
+      --plugin|-p)
+        _dotbot_args_ref+=("$1")
+        shift
+        if [ "$#" -eq 0 ]; then
+          echo "Missing value for ${_dotbot_args_ref[-1]}" >&2
+          return 1
+        fi
+        _dotbot_args_ref+=("$1")
+        shift
+        ;;
+      --dry-run|-n|--verbose|-v|-vv|--quiet|-q|--force-color|--no-color|--version|--help|-h|--exit-on-failure|-x|--disable-built-in-plugins)
+        _dotbot_args_ref+=("$1")
+        shift
+        ;;
+      -*)
+        _dotbot_args_ref+=("$1")
+        shift
+        ;;
+      *)
+        _roles_ref+=("$1")
+        shift
+        ;;
+    esac
+  done
+}
+
+has_dry_run() {
+  local arg
+  for arg in "$@"; do
+    case "${arg}" in
+      --dry-run|-n)
+        return 0
+        ;;
+    esac
+  done
+  return 1
+}
+
+_ENV=""
+if [ "$#" -gt 0 ] && [[ "$1" != -* ]]; then
+  _ENV="$1"
+  shift
+else
+  _ENV="$(detect_host)"
+fi
+
 if [ ! -f "${META_DIR}/${PROFILES_DIR}/${_ENV}${CONFIG_SUFFIX}" ]; then
-  echo "Host type ${_ENV} is not supported".
+  echo "Host type ${_ENV} is not supported."
   exit 1
 fi
+
+CONFIGS=()
+EXTRA_ROLES=()
+DOTBOT_ARGS=()
+
+parse_dotbot_args EXTRA_ROLES DOTBOT_ARGS "$@"
 
 echo "Installing dotfiles for host type ${_ENV}"
-git submodule update --init --recursive --remote || exit 1
-
-while IFS= read -r config; do
-    TMP=${config%:*}
-    CONFIGS+=" ${TMP##* }"
-    unset TMP
-done < "${META_DIR}/${PROFILES_DIR}/${_ENV}${CONFIG_SUFFIX}"
-
-shift
-
-_dotbot="${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN} -d ${BASE_DIR} --plugin-dir dotbot-brew"
-
-$_dotbot -c "${META_DIR}/${BASE_CONFIG}${CONFIG_SUFFIX}"
-
-if [ $? -ne 0 ]; then
+if has_dry_run "${DOTBOT_ARGS[@]}"; then
+  echo "Dry-run requested; skipping submodule update"
+elif ! git submodule update --init --recursive --remote; then
   exit 1
 fi
 
-for config in ${CONFIGS} ${@}; do
-    $_dotbot -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}"
-    if [ $? -ne 0 ]; then
-      exit 1
-    fi
-    echo -e "Configured $config"
+while IFS= read -r config; do
+  config=${config#- }
+  config=${config%%:*}
+  [ -n "${config}" ] && CONFIGS+=("${config}")
+done < "${META_DIR}/${PROFILES_DIR}/${_ENV}${CONFIG_SUFFIX}"
+
+_dotbot=("${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin dotbot-brew)
+
+"${_dotbot[@]}" -c "${META_DIR}/${BASE_CONFIG}${CONFIG_SUFFIX}" "${DOTBOT_ARGS[@]}"
+
+for config in "${CONFIGS[@]}" "${EXTRA_ROLES[@]}"; do
+  "${_dotbot[@]}" -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}" "${DOTBOT_ARGS[@]}"
+  echo -e "Configured $config"
 done

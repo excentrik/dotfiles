@@ -36,8 +36,8 @@ This document describes how the repo is organized and how to extend it. For inst
 
 ### Root
 
-- **install** — Main entry: detects or uses host, updates submodules, runs Dotbot with `meta/base.yaml` then each role from `meta/hosts/<host>.yaml`. Optional extra roles: `./install wsl some_role`.
-- **install-role** — Run one or more roles only (e.g. `./install-role vim git`). Does not run base or full host.
+- **install** — Main entry: detects or uses host, updates submodules unless Dotbot dry-run is requested, runs Dotbot with `meta/base.yaml` then each role from `meta/hosts/<host>.yaml`. Optional extra roles: `./install wsl some_role`; Dotbot flags such as `--dry-run`, `--only`, and `--except` are passed through. Use a temporary `HOME` when testing dry-runs from a worktree.
+- **install-role** — Run one or more roles only (e.g. `./install-role vim git`). Does not run base or full host. Dotbot flags can appear before or after role names.
 - **generate_shortcuts_documentation.sh** — Regenerates the “Commands available” section in README.md by running `list_dotfiles_functions`. **Must be run in a shell that has already sourced the dotfiles** (e.g. `source ~/.bash_profile`), since it relies on aliases/functions from `~/.aliases/`.
 
 ### helpers/

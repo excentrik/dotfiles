@@ -23,12 +23,14 @@ For default installation (automatically detects host):
 
 ```bash
 ~/.dotfiles$ ./install
+~/.dotfiles$ ./install --dry-run
 ```
 
 For installing a specific host:
 
 ```bash
 ~/.dotfiles$ ./install <host> [<roles...>]
+~/.dotfiles$ ./install <host> --dry-run
 # see meta/hosts/ for available hosts
 # see meta/roles/ for available roles
 ```
@@ -37,6 +39,7 @@ For installing a single role/package:
 
 ```bash
 ~/.dotfiles$ ./install-role <roles...>
+~/.dotfiles$ ./install-role <roles...> --dry-run
 # see meta/roles/ for available roles
 ```
 
@@ -59,6 +62,12 @@ By default, validation checks Linux/WSL-oriented hosts (`unix`, `wsl`, and `dock
 
 ```bash
 ~/.dotfiles$ helpers/validate.sh --all-roles
+```
+
+When testing install dry-runs from a worktree, use a temporary `HOME` so existing symlinks from another checkout do not affect the result:
+
+```bash
+~/.dotfiles$ HOME="$(mktemp -d)" ./install unix --dry-run
 ```
 
 ## Loading source files

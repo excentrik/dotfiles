@@ -2,20 +2,82 @@
 
 set -e
 
-BASE_CONFIG="base"
 CONFIG_SUFFIX=".yaml"
 
 META_DIR="meta"
 CONFIG_DIR="roles"
-PROFILES_DIR="hosts"
 
 DOTBOT_DIR="dotbot"
 DOTBOT_BIN="bin/dotbot"
 
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 cd "${BASE_DIR}"
 
-for config in ${@}; do
-    "${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin-dir dotbot-brew -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}" --verbose
+usage() {
+  cat <<'USAGE'
+Usage: ./install-role <roles...> [dotbot-options...]
+       ./install-role [dotbot-options...] <roles...>
+
+Examples:
+  ./install-role bash
+  ./install-role bash --dry-run
+  ./install-role --dry-run bash
+USAGE
+}
+
+parse_dotbot_args() {
+  local -n _roles_ref=$1
+  local -n _dotbot_args_ref=$2
+  shift 2
+
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      --only|--except)
+        _dotbot_args_ref+=("$1")
+        shift
+        while [ "$#" -gt 0 ] && [[ "$1" != -* ]]; do
+          _dotbot_args_ref+=("$1")
+          shift
+        done
+        ;;
+      --plugin|-p)
+        _dotbot_args_ref+=("$1")
+        shift
+        if [ "$#" -eq 0 ]; then
+          echo "Missing value for ${_dotbot_args_ref[-1]}" >&2
+          return 1
+        fi
+        _dotbot_args_ref+=("$1")
+        shift
+        ;;
+      --dry-run|-n|--verbose|-v|-vv|--quiet|-q|--force-color|--no-color|--version|--help|-h|--exit-on-failure|-x|--disable-built-in-plugins)
+        _dotbot_args_ref+=("$1")
+        shift
+        ;;
+      -*)
+        _dotbot_args_ref+=("$1")
+        shift
+        ;;
+      *)
+        _roles_ref+=("$1")
+        shift
+        ;;
+    esac
+  done
+}
+
+ROLES=()
+DOTBOT_ARGS=()
+
+parse_dotbot_args ROLES DOTBOT_ARGS "$@"
+
+if [ "${#ROLES[@]}" -eq 0 ]; then
+  usage >&2
+  exit 1
+fi
+
+_dotbot=("${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin dotbot-brew)
+
+for config in "${ROLES[@]}"; do
+  "${_dotbot[@]}" -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}" --verbose "${DOTBOT_ARGS[@]}"
 done
