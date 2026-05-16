@@ -24,7 +24,14 @@ _build_ssh_tunnel_arguments() {
   for arg in ${*:2}; do
       array+=("-L $arg")
   done
-  echo "-fN -4 ${array[*]} $(_base_ssh_options "${1}") -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o StrictHostKeyChecking=no -o KeepAlive=yes -o ExitOnForwardFailure=yes -o ControlMaster=auto -oControlPath=/tmp/${1}  ${1}"
+  # Keep ControlPath out of /tmp: the shared world-writable directory leaks the
+  # socket to other users on the host and is read-only in many container
+  # runtimes. Use a per-user, per-host path under ~/.ssh, creating the
+  # directory on demand for ephemeral containers that ship without it.
+  local control_dir="${HOME}/.ssh"
+  [ -d "${control_dir}" ] || mkdir -p -m 700 "${control_dir}"
+  local control_path="${control_dir}/cm-${1}"
+  echo "-fN -4 ${array[*]} $(_base_ssh_options "${1}") -o ServerAliveInterval=30 -o ServerAliveCountMax=10 -o StrictHostKeyChecking=no -o KeepAlive=yes -o ExitOnForwardFailure=yes -o ControlMaster=auto -oControlPath=${control_path}  ${1}"
 }
 
 _assert_ports_are_available() {
