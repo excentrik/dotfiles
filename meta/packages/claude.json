@@ -2,6 +2,11 @@
   "description": "Claude Code role dependencies",
   "commands": [
     {
+      "name": "node",
+      "apt": ["nodejs"],
+      "message": "Node.js is needed because helpers/claude_setup.sh installs Claude Code with npm."
+    },
+    {
       "name": "npm",
       "apt": ["npm"],
       "message": "npm is needed before helpers/claude_setup.sh can install Claude Code."

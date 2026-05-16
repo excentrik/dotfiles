@@ -2,6 +2,11 @@
   "description": "GitHub Copilot CLI role dependencies",
   "commands": [
     {
+      "name": "node",
+      "apt": ["nodejs"],
+      "message": "Node.js is needed because helpers/copilot_setup.sh installs GitHub Copilot CLI with npm."
+    },
+    {
       "name": "npm",
       "apt": ["npm"],
       "message": "npm is needed before helpers/copilot_setup.sh can install GitHub Copilot CLI."
