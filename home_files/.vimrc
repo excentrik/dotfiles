@@ -129,21 +129,14 @@ nnoremap <C-L> :nohl<CR><C-L>
 " have made, as well as sanely reset options when re-sourcing .vimrc
 set nocompatible
 
-" Setting up Vundle - the vim plugin bundler
-let iCanHazVundle=1
+" Optional Vundle setup. Do not install plugins during normal Vim startup.
 let vundle_readme=expand('~/.vim/bundle/vundle/README.md')
-if !filereadable(vundle_readme)
-    echo "Installing Vundle.."
-    echo ""
-    silent !mkdir -p ~/.vim/bundle
-    silent !git clone https://github.com/VundleVim/Vundle.vim ~/.vim/bundle/vundle
-    let iCanHazVundle=0
+if filereadable(vundle_readme)
+    set rtp+=~/.vim/bundle/vundle/
 endif
 
 " Required
 filetype off
-
-set rtp+=~/.vim/bundle/vundle/
 
 " call vundle#begin()
 " Plugin 'VundleVim/Vundle.vim'

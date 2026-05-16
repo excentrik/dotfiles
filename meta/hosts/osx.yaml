@@ -2,6 +2,7 @@
 - editor: ~
 - gitprompt: ~
 - git: ~
+- xcode_cli: ~
 - brew: ~
 - inputrc: ~
 - vim: ~

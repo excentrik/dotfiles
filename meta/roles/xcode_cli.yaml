@@ -1,0 +1,6 @@
+- shell:
+  -
+    command: helpers/xcode_cli_setup.sh # Xcode Command Line Tools setup
+    stdout: true
+    stdin: true
+    stderr: true

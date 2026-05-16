@@ -14,6 +14,7 @@ Runs non-mutating validation checks:
   - Optional zsh syntax checks when zsh is installed
   - Host role reference checks
   - Dotbot link target checks
+  - README generated command documentation drift checks
   - Dotbot dry-runs using a temporary HOME
 
 By default, role checks are limited to Linux/WSL-oriented hosts: unix, wsl, docker.
@@ -183,6 +184,11 @@ check_dotbot_dry_runs() {
   rm -rf "${tmp_home}"
 }
 
+check_readme_command_docs() {
+  status "Checking README command documentation"
+  ./generate_shortcuts_documentation.sh --check
+}
+
 main() {
   local configs
   mapfile -t configs < <(collect_role_configs)
@@ -190,6 +196,7 @@ main() {
   check_bash_syntax
   check_zsh_syntax
   check_link_targets "${configs[@]}"
+  check_readme_command_docs
   check_dotbot_dry_runs "${configs[@]}"
 
   status "Validation passed"

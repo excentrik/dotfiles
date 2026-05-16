@@ -2,10 +2,20 @@
 
 set -o errexit
 
-#if [ ! -x "$(command -v brew)" ]; then
-#  echo "Brew not installed. Skipping setup"
-#  exit
-#fi
+if [[ -n "${DOTFILES_NO_INTERACTIVE:-}" ]]; then
+  echo "DOTFILES_NO_INTERACTIVE is set; skipping Homebrew update, upgrade, and cleanup."
+  exit 0
+fi
+
+if [ ! -t 0 ]; then
+  echo "No interactive input available; skipping Homebrew update, upgrade, and cleanup."
+  exit 0
+fi
+
+if ! command -v brew >/dev/null 2>&1; then
+  echo "Brew not installed. Skipping setup."
+  exit 0
+fi
 
 # Make sure we’re using the latest Homebrew.
 while true; do

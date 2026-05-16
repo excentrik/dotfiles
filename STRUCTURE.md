@@ -17,6 +17,8 @@ This document describes how the repo is organized and how to extend it. For inst
 
 **Note:** `install.conf.yaml` at the repo root is **not** used by `./install`. The installer uses only `meta/base.yaml` and `meta/roles/*.yaml`. It is legacy/OSX-oriented and can be removed or kept for reference.
 
+Native Windows is out of scope for this repository. Windows users should run the existing `wsl` host profile inside WSL, which `./install` auto-detects from `/proc/version`.
+
 ## Adding a new host
 
 1. Create `meta/hosts/<hostname>.yaml`.
@@ -33,13 +35,16 @@ This document describes how the repo is organized and how to extend it. For inst
 3. If the role needs setup logic, add a script in `helpers/` and invoke it from the role YAML via `shell:`.
 4. Add the role name to the appropriate host file(s) in `meta/hosts/`.
 
+Do not add a Dotbot copy plugin without a concrete need. Repo-managed files should be linked from `home_files/`, while generated or machine-local files should be created by idempotent helpers.
+
 ## Scripts
 
 ### Root
 
 - **install** — Main entry: detects or uses host, updates submodules to recorded commits unless Dotbot dry-run is requested, runs Dotbot with `meta/base.yaml` then each role from `meta/hosts/<host>.yaml`. Optional extra roles: `./install wsl some_role`; Dotbot flags such as `--dry-run`, `--only`, and `--except` are passed through. Set `DOTFILES_UPDATE_SUBMODULES=1` to intentionally update submodules from upstream remotes. Use a temporary `HOME` when testing dry-runs from a worktree.
 - **install-role** — Run one or more roles only (e.g. `./install-role vim git`). Does not run base or full host. Dotbot flags can appear before or after role names.
-- **generate_shortcuts_documentation.sh** — Regenerates the “Commands available” section in README.md by running `list_dotfiles_functions`. **Must be run in a shell that has already sourced the dotfiles** (e.g. `source ~/.bash_profile`), since it relies on aliases/functions from `~/.aliases/`.
+- **generate_shortcuts_documentation.sh** — Regenerates the “Commands available” section in README.md from the alias/function comments in `home_files/.aliases/`. Use `./generate_shortcuts_documentation.sh --check` to detect README command-doc drift without modifying the file.
+- `DOTFILES_NO_INTERACTIVE=1` skips helpers that would prompt for input, including Homebrew maintenance and macOS system-defaults setup.
 
 To update submodules without running install scripts, use `git submodule update --init --recursive` for recorded commits or add `--remote` to intentionally advance submodules from upstream branches.
 
@@ -67,6 +72,7 @@ To update submodules without running install scripts, use `git submodule update 
 | git_setup.sh | Copies `~/.gitconfig` to `~/.gitconfig_local` if needed; adds GIT_SSH and (on OSX) credential helper |
 | python_setup.sh | Python environment setup (role: python) |
 | brew_setup.sh | Homebrew initialization (role: brew, OSX) |
+| xcode_cli_setup.sh | Xcode Command Line Tools setup only; does not install full Xcode (role: xcode_cli, OSX) |
 | ohmyzsh_setup.sh | Oh My Zsh setup (role: ohmyzsh) |
 | vim_plugin_install.sh | Installs Vim plugins (role: vim_plugins) |
 | node_setup.sh | Node environment setup (if used by a role) |
@@ -85,6 +91,8 @@ To update submodules without running install scripts, use `git submodule update 
 The `git` role force-links the managed `home_files/git/gitconfig` to `~/.gitconfig` with Dotbot backups enabled. Before that link is created, `helpers/git_setup.sh` preserves an existing user-owned `~/.gitconfig` as `~/.gitconfig_local` when the local include does not already exist.
 
 `home_files/git/gitconfig` should contain shared defaults only. Machine-local identity, credential helpers, and other personal overrides belong in `~/.gitconfig_local`, which is included by the managed config and is not tracked by this repository. Repeat installs do not copy the managed `~/.gitconfig` symlink back into `~/.gitconfig_local`, which avoids duplicating the committed config in the local include.
+
+This conditional `~/.gitconfig` preservation is intentionally implemented in `helpers/git_setup.sh`, not through a generic copy plugin, because it depends on the existing target state and must avoid copying the managed symlink on repeat installs.
 
 ## Link safety and forced targets
 

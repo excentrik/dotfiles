@@ -3,6 +3,16 @@
 set -o errexit
 # ~/.osx — https://mths.be/osx
 
+if [[ -n "${DOTFILES_NO_INTERACTIVE:-}" ]]; then
+  echo "DOTFILES_NO_INTERACTIVE is set; skipping macOS system defaults setup."
+  exit 0
+fi
+
+if [ ! -t 0 ]; then
+  echo "No interactive input available; skipping macOS system defaults setup."
+  exit 0
+fi
+
 # Ask for the administrator password upfront
 sudo -v
 

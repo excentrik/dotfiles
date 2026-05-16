@@ -35,6 +35,8 @@ For installing a specific host:
 # see meta/roles/ for available roles
 ```
 
+Native Windows is not a supported host. On Windows, install these dotfiles inside WSL using the `wsl` host profile, which `./install` auto-detects when run from WSL.
+
 For installing a single role/package:
 
 ```bash
@@ -47,6 +49,9 @@ If you don't want dotfiles to ask for any user input, you can use the `DOTFILES_
 ```bash
 ~/.dotfiles$ DOTFILES_NO_INTERACTIVE=1 ./install
 ```
+On macOS, this skips the interactive Homebrew maintenance helper and the macOS system-defaults helper so unattended installs do not prompt for sudo or apply system settings.
+
+The macOS host installs and selects **Xcode Command Line Tools only** via the `xcode_cli` role. It does not install full Xcode.
 
 You can run these installation commands safely multiple times, if you think that helps with better installation.
 
@@ -79,6 +84,8 @@ By default, validation checks Linux/WSL-oriented hosts (`unix`, `wsl`, and `dock
 ```bash
 ~/.dotfiles$ helpers/validate.sh --all-roles
 ```
+
+Validation also checks that the generated "Commands available" section is up to date. If that check fails, regenerate it with `./generate_shortcuts_documentation.sh` instead of editing the generated section manually.
 
 When testing install dry-runs from a worktree, use a temporary `HOME` so existing symlinks from another checkout do not affect the result:
 
@@ -115,13 +122,15 @@ See `LICENSE.md` for details.
 Run `list_dotfiles_functions` to get a list of available commands:
 
 ```bash
+clcd                                                              # cd into a directory and launch claude
 cleanup_ds                                                        # Recursively delete `.DS_Store` files under the current path
 confirm                                                           # Confirmation wrapper. Usage: confirm rm -rf /tmp/folder
 dot_progress                                                      # Fancy progress function from Landley's Aboriginal Linux. Usage: rm -rfv /foo | dot_progress
 escape                                                            # Uber useful when you need to translate a weird path into single-argument string.
-external_ip                                                       # Get external IP address
 extract                                                           # Extra many types of compressed packages
 fs                                                                # Determine size of a file or total size of a directory
+getHostIp                                                         # Get the IP of the host inside a Docker container
+is_running_inside_container                                       # Detect if this command is running inside a docker container
 kill_processes                                                    # Kill processes matching a pattern after confirmation. Usage: kill_processes ssh
 la                                                                # List all files colorized in long format, including dot files
 list_dotfiles_functions                                           # List all function available in a shell
@@ -135,8 +144,9 @@ pyclean                                                           # Clean all py
 reload                                                            # Reload the shel
 report_local_port_forwardings                                     # Display all local port forwarding tunnels
 report_remote_port_forwardings                                    # Display all remote port forwarding tunnels
-run_under_tmux                                                    # Run $1 under session or attach if such session already exist. Example usage: run_under_tmux 'rtorrent' '/usr/local/rtorrent-git/bin/rtorrent';
+run_under_tmux                                                    # Run $1 under session or attach if such session already exist. Example usage: run_under_tmux 'htop';
 shell_is_interactive                                              # Checks if shell is interactive
+start_tunnel                                                      # Start an SSH connection to the first argument, while creating a tunnel for each of the remaining arguments. Example: `start_tunnel github.com 8888:127.0.0.1:27017 `
 targz                                                             # Create a .tar.gz archive, using `zopfli`, `pigz` or `gzip` for compression
 timer                                                             # Stopwatch to count execution time for a command. Usage example: timer ls -la
 title                                                             # Set terminal titles in OSX
