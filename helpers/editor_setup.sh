@@ -6,7 +6,7 @@ set -o errexit
 #----------------------------
 
 # Clear EDITOR variable if it cannot be executed
-if [[ -n "${EDITOR}" && ! $(type ${EDITOR} >/dev/null 2>/dev/null) ]]; then
+if [[ -n "${EDITOR:-}" ]] && ! command -v "${EDITOR%% *}" >/dev/null 2>&1; then
     EDITOR=''
 fi
 
@@ -51,7 +51,7 @@ esac
 # Try to use a UI editor when not connected through SSH
 if [ -f "/usr/local/bin/edit" ]; then
   read -d '' TEXT <<"EOF"
-EDITOR=$(if [[ -n SSH_CONNECTION && -f /usr/local/bin/edit ]]; then echo '/usr/local/bin/edit'; else echo ${EDITOR}; fi)
+EDITOR=$(if [[ -z "$SSH_CONNECTION" && -f /usr/local/bin/edit ]]; then echo '/usr/local/bin/edit'; else echo ${EDITOR}; fi)
 EOF
 
   grep -q -F "${TEXT}" ~/.extra || echo "${TEXT}" >> ~/.extra
