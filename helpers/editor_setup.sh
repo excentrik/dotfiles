@@ -43,8 +43,8 @@ if [ ! -f ~/.extra ]; then
 fi
 
 case "${EDITOR}" in
-vi*)   grep -q -F "EDITOR=$EDITOR" ~/.extra || printf "\nexport EDITOR=$EDITOR" >> ~/.extra ;;
-nano*) grep -q -F "EDITOR=$EDITOR" ~/.extra || printf "\nexport EDITOR=$EDITOR" >> ~/.extra ;;
+vi*)   grep -q -F "EDITOR=$EDITOR" ~/.extra || printf "\nexport EDITOR=$EDITOR\nexport VISUAL=$EDITOR" >> ~/.extra ;;
+nano*) grep -q -F "EDITOR=$EDITOR" ~/.extra || printf "\nexport EDITOR=$EDITOR\nexport VISUAL=$EDITOR" >> ~/.extra ;;
 *)     echo "unknown editor: $EDITOR. Aborting" && exit 1 ;;
 esac
 
