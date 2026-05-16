@@ -114,6 +114,27 @@ run_package_bootstrap() {
   python3 helpers/package_bootstrap.py "${package_args[@]}"
 }
 
+# Refuse to run when both the `zsh` (plain) and `ohmyzsh` roles are scheduled:
+# they both manage ~/.zshrc and combining them yields unpredictable ordering.
+# AGENTS.md and STRUCTURE.md document the exclusion; this guard enforces it
+# even for partial role-only invocations like `./install-role zsh ohmyzsh`.
+validate_role_exclusion() {
+  local zsh_present=0
+  local ohmyzsh_present=0
+  local role
+  for role in "$@"; do
+    case "${role}" in
+      zsh) zsh_present=1 ;;
+      ohmyzsh) ohmyzsh_present=1 ;;
+    esac
+  done
+  if [ "${zsh_present}" -eq 1 ] && [ "${ohmyzsh_present}" -eq 1 ]; then
+    echo "error: the 'zsh' and 'ohmyzsh' roles are mutually exclusive." >&2
+    echo "       Both manage ~/.zshrc; pick one before re-running." >&2
+    return 1
+  fi
+}
+
 ROLES=()
 DOTBOT_ARGS=()
 _ENV="$(detect_host)"
@@ -124,6 +145,8 @@ if [ "${#ROLES[@]}" -eq 0 ]; then
   usage >&2
   exit 1
 fi
+
+validate_role_exclusion "${ROLES[@]}"
 
 _dotbot=("${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin dotbot-brew)
 
