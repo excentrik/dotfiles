@@ -42,7 +42,7 @@ There are two zsh variants. The `zsh` role links a plain `home_files/.zshrc`; th
 
 ## Role and helper details
 
-- Dotbot defaults usually use `backup: true` and `force: false`, but some roles intentionally force targets: `git` forces `~/.gitconfig`, `zsh` forces `~/.zshrc`, and `ohmyzsh` cleans then forces `~/.zshrc`.
+- Dotbot defaults usually use `backup: true` and `force: false`, but some roles intentionally force targets: `git` forces `~/.gitconfig`, `zsh` forces `~/.zshrc`, and `ohmyzsh` cleans then forces `~/.zshrc`. Keep forced targets rare and document the reason in `STRUCTURE.md`.
 - `helpers/editor_setup.sh`, `helpers/git_setup.sh`, `helpers/python_setup.sh`, and `helpers/node_setup.sh` append idempotent blocks to `~/.extra`; preserve their grep-before-append pattern when adding local setup.
 - `helpers/brew_setup.sh` is interactive and can run `brew update`, `brew upgrade`, and `brew cleanup`; `helpers/osx_setup.sh` asks for sudo and changes macOS defaults. Do not run these as validation.
 - `helpers/claude_setup.sh` installs `@anthropic-ai/claude-code` globally with npm when `claude` is missing.

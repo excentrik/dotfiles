@@ -85,3 +85,15 @@ To update submodules without running install scripts, use `git submodule update 
 The `git` role force-links the managed `home_files/git/gitconfig` to `~/.gitconfig` with Dotbot backups enabled. Before that link is created, `helpers/git_setup.sh` preserves an existing user-owned `~/.gitconfig` as `~/.gitconfig_local` when the local include does not already exist.
 
 `home_files/git/gitconfig` should contain shared defaults only. Machine-local identity, credential helpers, and other personal overrides belong in `~/.gitconfig_local`, which is included by the managed config and is not tracked by this repository. Repeat installs do not copy the managed `~/.gitconfig` symlink back into `~/.gitconfig_local`, which avoids duplicating the committed config in the local include.
+
+## Link safety and forced targets
+
+Dotbot link defaults are defined in `meta/base.yaml`: links are created as needed, relinked, not forced, and backed up. Roles can override these defaults for targets that must be owned by a selected shell/profile.
+
+| Role | Target | Behavior | Reason |
+|------|--------|----------|--------|
+| `git` | `~/.gitconfig` | `force: true`, `backup: true` | The repo manages the shared Git config while machine-local settings live in `~/.gitconfig_local`. |
+| `zsh` | `~/.zshrc` | `force: true`, `backup: true` | The plain zsh role must replace any existing zsh startup file with the repo-managed one. |
+| `ohmyzsh` | `~/.zshrc` | cleans `~/.zshrc` with `force: true`, then links with `force: true`, `backup: true` | The Oh My Zsh role must hand off from the upstream installer to the repo-managed `.ohmyzshrc`. Run this role intentionally because the clean step is more destructive than a normal backed-up link. |
+
+Do not add `force: true` to a role casually. Prefer the base defaults unless a target must be replaced for the role to work, and document why the forced target is safe.
