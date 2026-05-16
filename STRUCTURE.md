@@ -58,8 +58,6 @@ To update submodules without running install scripts, use `git submodule update 
 | `home_files/.aliases/ssh_tunnels.sh` | `meta/roles/docker_container.yaml` | Container SSH tunnel helpers |
 | `home_files/.aliases/osx.sh` | `meta/roles/osx.yaml` | macOS-specific aliases |
 | `home_files/.aliases/python_aliases.sh` | `meta/roles/python.yaml` | Python aliases |
-| `home_files/.aliases/ports.sh` | not linked | Dormant; not installed unless a role links it |
-| `home_files/.aliases/tmux.sh` | not linked | Dormant; not installed unless a role links it |
 
 ### helpers/
 
