@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Pin to a known-working version. Bump explicitly when you want a newer
+# release; running `npm view @github/copilot version` prints the latest
+# published version. Exact pinning keeps repeat installs across machines
+# reproducible instead of silently drifting to whatever was published the
+# day someone runs `./install`.
+COPILOT_CLI_VERSION="1.0.48"
+
 # Helper: detect a non-writable npm global prefix and skip with guidance.
 # See helpers/claude_setup.sh for the longer rationale; the same check
 # applies to any `npm install -g` invocation.
@@ -36,8 +43,8 @@ elif ! command -v npm >/dev/null 2>&1; then
 elif ! npm_prefix_writable; then
     print_npm_permission_help
 else
-    echo "Installing GitHub Copilot CLI..."
-    npm install -g @github/copilot
+    echo "Installing GitHub Copilot CLI ${COPILOT_CLI_VERSION}..."
+    npm install -g "@github/copilot@${COPILOT_CLI_VERSION}"
 fi
 
 # Verify copilot is in PATH

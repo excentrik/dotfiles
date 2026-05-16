@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Pin to a known-working version. Bump explicitly when you want a newer
+# release; running `npm view @anthropic-ai/claude-code version` prints the
+# latest published version. Exact pinning keeps repeat installs across
+# machines reproducible instead of silently drifting to whatever was
+# published the day someone runs `./install`.
+CLAUDE_CODE_VERSION="2.1.143"
+
 # Helper: detect a non-writable npm global prefix and skip with guidance.
 # `npm install -g` writes to `${npm_prefix}/lib/node_modules` and
 # `${npm_prefix}/bin`. On many distros the default prefix is /usr or
@@ -41,8 +48,8 @@ elif ! command -v npm >/dev/null 2>&1; then
 elif ! npm_prefix_writable; then
     print_npm_permission_help
 else
-    echo "Installing Claude Code..."
-    npm install -g @anthropic-ai/claude-code
+    echo "Installing Claude Code ${CLAUDE_CODE_VERSION}..."
+    npm install -g "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}"
 fi
 
 # Verify claude is in PATH
