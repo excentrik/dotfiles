@@ -1,6 +1,9 @@
-- clean:
-    ~/.zshrc:
-      force: true
+- defaults:
+    link:
+      create: true
+      relink: true
+      force: false
+      backup: true
 
 - shell:
   -
@@ -10,9 +13,8 @@
     stderr: true
 
 - link:
+    ~/.zsh_aliases: home_files/.zsh_aliases
+    ~/.zsh_prompt: home_files/.zsh_prompt
+    ~/.zshenv: home_files/.zshenv
     ~/.zshrc:
       path: home_files/.ohmyzshrc
-      create: true
-      relink: true
-      force: true
-      backup: true

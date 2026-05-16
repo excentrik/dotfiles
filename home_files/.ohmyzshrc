@@ -91,9 +91,21 @@ HIST_STAMPS="dd/mm/yyyy"
 # Custom plugins may be added to ~/.oh-my-zsh/custom/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(git osx zsh-syntax-highlighting)
+plugins=(git)
 
-source $ZSH/oh-my-zsh.sh
+if [ -d "${ZSH}/plugins/macos" ]; then
+  plugins+=(macos)
+elif [ -d "${ZSH}/plugins/osx" ]; then
+  plugins+=(osx)
+fi
+
+zsh_syntax_plugin="${ZSH_CUSTOM:-${ZSH}/custom}/plugins/zsh-syntax-highlighting"
+if [ -d "${zsh_syntax_plugin}" ] || [ -d "${ZSH}/plugins/zsh-syntax-highlighting" ]; then
+  plugins+=(zsh-syntax-highlighting)
+fi
+unset zsh_syntax_plugin
+
+source "${ZSH}/oh-my-zsh.sh"
 
 # Load the shell dotfiles, and then some:
 # * ~/.extra can be used for other settings you don't want to commit.

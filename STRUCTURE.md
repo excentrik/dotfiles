@@ -73,7 +73,7 @@ To update submodules without running install scripts, use `git submodule update 
 | python_setup.sh | Python environment setup (role: python) |
 | brew_setup.sh | Homebrew initialization (role: brew, OSX) |
 | xcode_cli_setup.sh | Xcode Command Line Tools setup only; does not install full Xcode (role: xcode_cli, OSX) |
-| ohmyzsh_setup.sh | Oh My Zsh setup (role: ohmyzsh) |
+| ohmyzsh_setup.sh | Copies `~/.oh-my-zsh` from the checked-out Oh My Zsh submodule when safe (role: ohmyzsh) |
 | vim_plugin_install.sh | Installs Vim plugins (role: vim_plugins) |
 | node_setup.sh | Node environment setup (if used by a role) |
 | osx_setup.sh | OS X–specific setup (if used by a role) |
@@ -102,6 +102,7 @@ Dotbot link defaults are defined in `meta/base.yaml`: links are created as neede
 |------|--------|----------|--------|
 | `git` | `~/.gitconfig` | `force: true`, `backup: true` | The repo manages the shared Git config while machine-local settings live in `~/.gitconfig_local`. |
 | `zsh` | `~/.zshrc` | `force: true`, `backup: true` | The plain zsh role must replace any existing zsh startup file with the repo-managed one. |
-| `ohmyzsh` | `~/.zshrc` | cleans `~/.zshrc` with `force: true`, then links with `force: true`, `backup: true` | The Oh My Zsh role must hand off from the upstream installer to the repo-managed `.ohmyzshrc`. Run this role intentionally because the clean step is more destructive than a normal backed-up link. |
+
+The `ohmyzsh` role intentionally uses the safe link defaults for `~/.zshrc` instead of forcing or cleaning it. Its helper copies the checked-out `oh-my-zsh` submodule into `~/.oh-my-zsh` so future dotfiles submodule updates do not automatically change the local shell framework; move conflicting local files aside manually before installing the role.
 
 Do not add `force: true` to a role casually. Prefer the base defaults unless a target must be replaced for the role to work, and document why the forced target is safe.

@@ -25,7 +25,7 @@ Host profiles are intentionally small role lists. `unix` and `wsl` install Bash,
 
 Shell startup flows through `home_files/.bash_profile` to `home_files/.bashrc`. `.bashrc` sources `~/.path`, `~/.exports`, and `~/.profile`, then calls `load_aliases()` from `~/.bash_aliases`, which sources every readable `~/.aliases/*.sh`. It then sources `~/.bash_prompt`, `~/.startup`, and `~/.extra` when present.
 
-There are two zsh variants. The `zsh` role links a plain `home_files/.zshrc`; the `ohmyzsh` role runs `helpers/ohmyzsh_setup.sh` and links `home_files/.ohmyzshrc`. Do not add both to the same host profile.
+There are two zsh variants. The `zsh` role links a plain `home_files/.zshrc`; the `ohmyzsh` role runs `helpers/ohmyzsh_setup.sh`, links the shared zsh support files, and links `home_files/.ohmyzshrc`. Do not add both to the same host profile.
 
 ## Conventions
 
@@ -42,10 +42,10 @@ There are two zsh variants. The `zsh` role links a plain `home_files/.zshrc`; th
 
 ## Role and helper details
 
-- Dotbot defaults usually use `backup: true` and `force: false`, but some roles intentionally force targets: `git` forces `~/.gitconfig`, `zsh` forces `~/.zshrc`, and `ohmyzsh` cleans then forces `~/.zshrc`. Keep forced targets rare and document the reason in `STRUCTURE.md`.
+- Dotbot defaults usually use `backup: true` and `force: false`, but some roles intentionally force targets: `git` forces `~/.gitconfig`, and `zsh` forces `~/.zshrc`. Keep forced targets rare and document the reason in `STRUCTURE.md`.
 - `helpers/editor_setup.sh`, `helpers/git_setup.sh`, `helpers/python_setup.sh`, and `helpers/node_setup.sh` append idempotent blocks to `~/.extra`; preserve their grep-before-append pattern when adding local setup.
 - `helpers/brew_setup.sh` is interactive and can run `brew update`, `brew upgrade`, and `brew cleanup`; `helpers/osx_setup.sh` asks for sudo and changes macOS defaults. Do not run these as validation.
 - `helpers/claude_setup.sh` installs `@anthropic-ai/claude-code` globally with npm when `claude` is missing.
-- `helpers/ohmyzsh_setup.sh` downloads and executes the upstream Oh My Zsh installer with `wget`; it exits if `zsh` is unavailable.
+- `helpers/ohmyzsh_setup.sh` copies `~/.oh-my-zsh` from the checked-out `oh-my-zsh` submodule when safe; it exits if `zsh` is unavailable or a conflicting target exists.
 - `home_files/.path` prepends system paths, `~/bin`, `~/.local/bin`, and `.`; Bash and zsh later de-duplicate `PATH` while keeping the first occurrence.
 - The Bash prompt in `home_files/.bash_prompt` computes Git branch details on prompt render. The zsh prompt in `home_files/.zsh_prompt` updates Git worktree state on `chpwd`/`precmd` and can skip Git checks when `skip_zsh_git` is set.
