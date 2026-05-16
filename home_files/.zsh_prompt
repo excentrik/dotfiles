@@ -130,7 +130,11 @@ git_check_if_worktree() {
 git_branch() {
     git_branch="$(git symbolic-ref HEAD 2>/dev/null)"
     git_branch="${git_branch#refs/heads/}"
-    git_branch="${git_branch:-no branch}"
+    if [ -z "${git_branch}" ]; then
+        # Detached HEAD: show the short commit SHA instead of "no branch".
+        git_branch="$(git rev-parse --short HEAD 2>/dev/null)"
+        git_branch="${git_branch:-no branch}"
+    fi
 }
 
 git_dirty() {
