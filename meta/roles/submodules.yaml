@@ -1,2 +1,12 @@
+# The submodules role re-runs `git submodule update --init --recursive`
+# against the repo's recorded commits. The top-level `./install` script
+# already does this before any role runs (see install:128-143), so this
+# role is effectively redundant during a full install.
+#
+# It exists primarily so that partial role-only invocations like
+#   ./install-role ohmyzsh submodules
+# can guarantee the submodules they depend on (oh-my-zsh, dotbot,
+# dotbot-brew, zsh-completions) are checked out at the recorded commit
+# even when `./install` was bypassed.
 - shell:
     - [git submodule update --init --recursive, Installing submodules]
