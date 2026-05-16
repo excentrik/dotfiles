@@ -9,7 +9,6 @@
     ~/.bash_aliases: home_files/.bash_aliases
     ~/.bash_profile: home_files/.bash_profile
     ~/.bashrc: home_files/.bashrc
-    ~/.inputrc: home_files/.inputrc
 
 - shell:
    - [source ~/.bash_profile, Source bash profile]
