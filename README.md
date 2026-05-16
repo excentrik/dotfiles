@@ -51,6 +51,16 @@ If you don't want dotfiles to ask for any user input, you can use the `DOTFILES_
 ```
 On macOS, this skips the interactive Homebrew maintenance helper and the macOS system-defaults helper so unattended installs do not prompt for sudo or apply system settings.
 
+On Linux/WSL hosts with `apt`, installs report missing role package dependencies without installing them. To explicitly allow missing apt packages to be installed before each role runs, use bootstrap mode:
+
+```bash
+~/.dotfiles$ ./install --bootstrap
+~/.dotfiles$ DOTFILES_BOOTSTRAP=1 ./install
+~/.dotfiles$ ./install-role claude --bootstrap
+```
+
+When combined with `--dry-run`, bootstrap prints the apt commands it would run without installing packages. macOS/Homebrew bootstrap is tracked separately; the existing macOS Homebrew role behavior is unchanged.
+
 The macOS host installs and selects **Xcode Command Line Tools only** via the `xcode_cli` role. It does not install full Xcode.
 
 You can run these installation commands safely multiple times, if you think that helps with better installation.

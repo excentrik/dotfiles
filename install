@@ -40,6 +40,10 @@ detect_host() {
 parse_dotbot_args() {
   while [ "$#" -gt 0 ]; do
     case "$1" in
+      --bootstrap)
+        DOTFILES_BOOTSTRAP=1
+        shift
+        ;;
       --only|--except)
         DOTBOT_ARGS+=("$1")
         shift
@@ -85,6 +89,21 @@ has_dry_run() {
     esac
   done
   return 1
+}
+
+run_package_bootstrap() {
+  local role="$1"
+  local package_args=(--host "${_ENV}" --role "${role}")
+
+  if has_dry_run "${DOTBOT_ARGS[@]}"; then
+    package_args+=(--dry-run)
+  fi
+
+  if [ "${DOTFILES_BOOTSTRAP:-}" = "1" ]; then
+    package_args+=(--bootstrap)
+  fi
+
+  python3 helpers/package_bootstrap.py "${package_args[@]}"
 }
 
 _ENV=""
@@ -134,6 +153,7 @@ _dotbot=("${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin dot
 "${_dotbot[@]}" -c "${META_DIR}/${BASE_CONFIG}${CONFIG_SUFFIX}" "${DOTBOT_ARGS[@]}"
 
 for config in "${CONFIGS[@]}" "${EXTRA_ROLES[@]}"; do
+  run_package_bootstrap "${config}"
   "${_dotbot[@]}" -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}" "${DOTBOT_ARGS[@]}"
   echo -e "Configured $config"
 done

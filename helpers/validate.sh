@@ -11,8 +11,10 @@ Usage: helpers/validate.sh [--all-roles]
 
 Runs non-mutating validation checks:
   - Bash syntax checks
+  - Python syntax checks
   - Optional zsh syntax checks when zsh is installed
   - Host role reference checks
+  - Package metadata checks
   - Dotbot link target checks
   - README generated command documentation drift checks
   - Dotbot dry-runs using a temporary HOME
@@ -114,6 +116,16 @@ check_bash_syntax() {
   bash -n "${files[@]}"
 }
 
+check_python_syntax() {
+  status "Checking Python syntax"
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "python3 not found; skipping Python syntax checks"
+    return 0
+  fi
+
+  python3 -m py_compile helpers/package_bootstrap.py
+}
+
 check_zsh_syntax() {
   status "Checking zsh syntax"
   if ! command -v zsh >/dev/null 2>&1; then
@@ -158,6 +170,16 @@ check_link_targets() {
   fi
 }
 
+check_package_metadata() {
+  status "Checking package metadata"
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "python3 not found; skipping package metadata checks"
+    return 0
+  fi
+
+  python3 helpers/package_bootstrap.py --validate
+}
+
 check_dotbot_dry_runs() {
   status "Running Dotbot dry-runs"
   local configs=("$@")
@@ -194,8 +216,10 @@ main() {
   mapfile -t configs < <(collect_role_configs)
 
   check_bash_syntax
+  check_python_syntax
   check_zsh_syntax
   check_link_targets "${configs[@]}"
+  check_package_metadata
   check_readme_command_docs
   check_dotbot_dry_runs "${configs[@]}"
 

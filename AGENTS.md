@@ -8,6 +8,7 @@
 - `./install-role <roles...> [dotbot-options...]` - run only the named role configs with Dotbot `--verbose`; Dotbot options may appear before or after role names.
 - `DOTFILES_UPDATE_SUBMODULES=1 ./install` - intentionally update submodules from upstream remotes before installing; default installs use recorded commits.
 - `DOTFILES_NO_INTERACTIVE=1 ./install` - run the installer without interactive prompts where helpers support it.
+- `DOTFILES_BOOTSTRAP=1 ./install` or `./install --bootstrap` - explicitly install missing Linux/WSL apt package dependencies declared by selected roles.
 - `helpers/validate.sh` - run non-mutating Linux/WSL-oriented validation.
 - `helpers/validate.sh --all-roles` - include non-Linux roles such as macOS and zsh.
 - `source ~/.bash_profile` - reload the installed Bash configuration.
@@ -30,6 +31,7 @@ There are two zsh variants. The `zsh` role links a plain `home_files/.zshrc`; th
 ## Conventions
 
 - Add a new role by creating `meta/roles/<name>.yaml`, placing linked dotfiles under `home_files/`, adding helper logic in `helpers/` when needed, and listing the role in the relevant `meta/hosts/<host>.yaml`.
+- Add Linux/WSL apt package dependencies for a role in `meta/packages/<role>.json`; normal installs report missing packages, and only bootstrap mode installs them.
 - Put shared shell functions and aliases in `home_files/.aliases/*.sh`; base and role configs link those files into `~/.aliases/`, where they are auto-sourced in shell glob order.
 - `functions.sh`, `common.sh`, and `other.sh` are always linked by `meta/base.yaml`; Claude, Docker, container, OS X, and Python alias files are role-specific.
 - Add a short comment immediately before aliases/functions that should appear in README command docs; `list_dotfiles_functions` discovers descriptions by grepping those comments from linked alias files.
@@ -44,6 +46,7 @@ There are two zsh variants. The `zsh` role links a plain `home_files/.zshrc`; th
 
 - Dotbot defaults usually use `backup: true` and `force: false`, but some roles intentionally force targets: `git` forces `~/.gitconfig`, and `zsh` forces `~/.zshrc`. Keep forced targets rare and document the reason in `STRUCTURE.md`.
 - `helpers/editor_setup.sh`, `helpers/git_setup.sh`, `helpers/python_setup.sh`, and `helpers/node_setup.sh` append idempotent blocks to `~/.extra`; preserve their grep-before-append pattern when adding local setup.
+- `helpers/package_bootstrap.py` uses JSON metadata from `meta/packages/` to report or explicitly install Linux/WSL apt dependencies before roles run. Keep macOS/Homebrew package bootstrap as a separate task.
 - `helpers/brew_setup.sh` is interactive and can run `brew update`, `brew upgrade`, and `brew cleanup`; `helpers/osx_setup.sh` asks for sudo and changes macOS defaults. Do not run these as validation.
 - `helpers/claude_setup.sh` installs `@anthropic-ai/claude-code` globally with npm when `claude` is missing.
 - `helpers/ohmyzsh_setup.sh` copies `~/.oh-my-zsh` from the checked-out `oh-my-zsh` submodule when safe; it exits if `zsh` is unavailable or a conflicting target exists.

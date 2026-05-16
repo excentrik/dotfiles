@@ -1,0 +1,9 @@
+{
+  "description": "Vim role dependencies",
+  "commands": [
+    {
+      "name": "vim",
+      "apt": ["vim"]
+    }
+  ]
+}

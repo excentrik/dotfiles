@@ -45,6 +45,7 @@ Do not add a Dotbot copy plugin without a concrete need. Repo-managed files shou
 - **install-role** — Run one or more roles only (e.g. `./install-role vim git`). Does not run base or full host. Dotbot flags can appear before or after role names.
 - **generate_shortcuts_documentation.sh** — Regenerates the “Commands available” section in README.md from the alias/function comments in `home_files/.aliases/`. Use `./generate_shortcuts_documentation.sh --check` to detect README command-doc drift without modifying the file.
 - `DOTFILES_NO_INTERACTIVE=1` skips helpers that would prompt for input, including Homebrew maintenance and macOS system-defaults setup.
+- `--bootstrap` or `DOTFILES_BOOTSTRAP=1` lets Linux/WSL installs with `apt` install missing role package dependencies before each role runs. Without bootstrap, package dependencies are only reported.
 
 To update submodules without running install scripts, use `git submodule update --init --recursive` for recorded commits or add `--remote` to intentionally advance submodules from upstream branches.
 
@@ -78,6 +79,7 @@ To update submodules without running install scripts, use `git submodule update 
 | node_setup.sh | Node environment setup (if used by a role) |
 | osx_setup.sh | OS X–specific setup (if used by a role) |
 | validate.sh | Non-mutating validation checks for scripts, role links, and Dotbot dry-runs |
+| package_bootstrap.py | Reports or explicitly installs Linux/WSL apt package dependencies declared per role |
 
 ### system/
 
@@ -93,6 +95,26 @@ The `git` role force-links the managed `home_files/git/gitconfig` to `~/.gitconf
 `home_files/git/gitconfig` should contain shared defaults only. Machine-local identity, credential helpers, and other personal overrides belong in `~/.gitconfig_local`, which is included by the managed config and is not tracked by this repository. Repeat installs do not copy the managed `~/.gitconfig` symlink back into `~/.gitconfig_local`, which avoids duplicating the committed config in the local include.
 
 This conditional `~/.gitconfig` preservation is intentionally implemented in `helpers/git_setup.sh`, not through a generic copy plugin, because it depends on the existing target state and must avoid copying the managed symlink on repeat installs.
+
+## Package bootstrap metadata
+
+Linux/WSL package bootstrap metadata lives in `meta/packages/<role>.json`, where `<role>` must match a role config in `meta/roles/`. Metadata is intentionally JSON so `helpers/package_bootstrap.py` can parse it with Python's standard library and avoid adding a YAML parser dependency before packages are installed.
+
+Each metadata file may declare command dependencies:
+
+```json
+{
+  "description": "Vim role dependencies",
+  "commands": [
+    {
+      "name": "vim",
+      "apt": ["vim"]
+    }
+  ]
+}
+```
+
+Normal installs report missing commands and apt package hints without installing anything. `--bootstrap` or `DOTFILES_BOOTSTRAP=1` is required for installation, and `--dry-run` prints the apt commands instead of running them. macOS/Homebrew bootstrap is intentionally deferred; keep Homebrew package migration separate from Linux/WSL apt metadata.
 
 ## Link safety and forced targets
 
