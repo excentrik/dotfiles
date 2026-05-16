@@ -1,3 +1,11 @@
+# Readline configuration. This file is consumed by GNU readline-linked apps
+# (bash, gdb, python with `import readline`, etc.). macOS ships libedit by
+# default for tools like its built-in Python; libedit silently ignores
+# readline-specific directives below (e.g. mark-symlinked-directories,
+# page-completions, skip-completed-text). On macOS, install GNU readline via
+# Homebrew (`brew install readline`) or use a readline-compiled bash/python
+# if you want these settings to take effect everywhere.
+
 # Make Tab autocomplete regardless of filename case
 set completion-ignore-case on
 
