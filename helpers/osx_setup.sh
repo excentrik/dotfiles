@@ -2,6 +2,28 @@
 
 set -o errexit
 # ~/.osx — https://mths.be/osx
+#
+# macOS-version sensitivity:
+# Many of the `defaults write`, `pmset`, `nvram`, and `systemsetup` calls
+# below were authored against pre-Catalina macOS and may be silently ignored
+# (or refused outright) on newer releases. Known categories of risk:
+#   - `LSQuarantine` and other launch-services keys can require Full Disk
+#     Access / SIP exceptions on macOS 11+.
+#   - `pmset -a standbydelay` was replaced by `standbydelaylow`/
+#     `standbydelayhigh` on macOS 10.15+; older single-value writes are
+#     accepted but silently coerced.
+#   - `systemsetup` calls (e.g. screensaver/timezone) require Full Disk
+#     Access on macOS 10.14+ and prompt the user even with cached sudo.
+#   - `nvram SystemAudioVolume` is blocked on Apple Silicon with SIP/Secure
+#     Boot fully enabled.
+#   - Several `defaults -currentHost` keys for menu-bar items no longer
+#     exist on macOS 12+ (Monterey rewrote the menu bar plist layout).
+#
+# On managed (MDM) machines many of these writes are no-ops because the
+# profile authority owns the preference domain. The helper does not check
+# preconditions per key; failures of individual keys are non-fatal because
+# `set -o errexit` only trips on hard exits, not on `defaults` no-ops.
+# Review periodically when bumping macOS major versions.
 
 if [[ -n "${DOTFILES_NO_INTERACTIVE:-}" ]]; then
   echo "DOTFILES_NO_INTERACTIVE is set; skipping macOS system defaults setup."
