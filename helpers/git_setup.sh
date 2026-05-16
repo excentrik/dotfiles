@@ -60,12 +60,15 @@ if [ ! -e "${GITCONFIG_LOCAL}" ]; then
 fi
 
 # Set ssh to use in git
-TEXT=$(cat <<-END
+GIT_SSH_BIN="$(command -v ssh 2>/dev/null || true)"
+if [ -n "${GIT_SSH_BIN}" ]; then
+    TEXT=$(cat <<-END
 \n
-export GIT_SSH=/usr/bin/ssh
+export GIT_SSH=${GIT_SSH_BIN}
 END
 )
-append_once "${EXTRA}" "${TEXT}"
+    append_once "${EXTRA}" "${TEXT}"
+fi
 
 # Use osxkeychain in OSX
 case "$OSTYPE" in
