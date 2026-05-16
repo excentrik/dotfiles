@@ -1,2 +1,6 @@
+# The gitprompt role only installs the bash prompt
+# (home_files/.bash_prompt). The zsh prompt lives in
+# home_files/.zsh_prompt and is owned by the zsh and ohmyzsh roles,
+# which link it directly. Do not link ~/.zsh_prompt from this role.
 - link:
     ~/.bash_prompt: home_files/.bash_prompt
