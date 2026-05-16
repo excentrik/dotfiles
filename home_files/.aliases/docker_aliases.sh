@@ -34,14 +34,33 @@ if [ -x "$(command -v docker)" ]; then
   # Stop all containers
   alias dstop="${__docker} stop \$(${__docker} ps -a -q)"
 
-  # Remove all containers
-  alias drm="${__docker} rm \$(${__docker} ps -a -q) -f"
+  # Remove all containers (asks for confirmation; no-op if no containers exist)
+  eval "function drm() {
+    local ids
+    ids=\$(${__docker} ps -a -q)
+    if [ -z \"\$ids\" ]; then echo 'No containers to remove.'; return 0; fi
+    confirm ${__docker} rm \$ids -f
+  }"
 
-  # Stop and remove all containers
-  alias drmf="${__docker} stop \$(${__docker} ps -a -q) && ${__docker} rm \$(${__docker} ps -a -q)"
+  # Stop and remove all containers (asks for confirmation; no-op if none)
+  eval "function drmf() {
+    local ids
+    ids=\$(${__docker} ps -a -q)
+    if [ -z \"\$ids\" ]; then echo 'No containers to remove.'; return 0; fi
+    local _run
+    read -s -t 3 -n 1 -p 'Stop and remove ALL containers? [yN] ' _run; echo
+    case \"\$_run\" in
+      y|Y) ${__docker} stop \$ids && ${__docker} rm \$ids ;;
+    esac
+  }"
 
-  # Remove all docker images
-  alias dri="${__docker} rmi \$(${__docker} images -q -a) -f"
+  # Remove all docker images (asks for confirmation; no-op if no images)
+  eval "function dri() {
+    local ids
+    ids=\$(${__docker} images -q -a)
+    if [ -z \"\$ids\" ]; then echo 'No images to remove.'; return 0; fi
+    confirm ${__docker} rmi \$ids -f
+  }"
 
   # Print docker logs
   alias dkl="${__docker}"' logs'
@@ -59,14 +78,30 @@ if [ -x "$(command -v docker)" ]; then
     fi
   }"
 
-  # Cleanup docker images and containers
-  alias dcleanup=${__docker}' rm $('${__docker}' ps -q -f "status=exited"); '${__docker}' rmi $('${__docker}' images -q -f "dangling=true"); '${__docker}' volume rm $('${__docker}' volume ls -q -f "dangling=true")'
+  # Cleanup docker images and containers (asks for confirmation; no-op when nothing matches)
+  eval "function dcleanup() {
+    local _run
+    read -s -t 3 -n 1 -p 'Cleanup exited containers + dangling images + dangling volumes? [yN] ' _run; echo
+    case \"\$_run\" in
+      y|Y)
+        local containers images volumes
+        containers=\$(${__docker} ps -q -f 'status=exited')
+        images=\$(${__docker} images -q -f 'dangling=true')
+        volumes=\$(${__docker} volume ls -q -f 'dangling=true')
+        [ -n \"\$containers\" ] && ${__docker} rm \$containers
+        [ -n \"\$images\" ] && ${__docker} rmi \$images
+        [ -n \"\$volumes\" ] && ${__docker} volume rm \$volumes
+        ;;
+    esac
+  }"
 
   # Presents a top-like display, showing memory, CPU, network I/O and block I/O
   alias dktop=${__docker}' stats --format "table {{.Container}}\t{{.Name}}\t{{.CPUPerc}}  {{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}"'
 
-  # Prune docker system
-  alias dkprune=${__docker}' system prune -af'
+  # Prune docker system (asks for confirmation)
+  eval "function dkprune() {
+    confirm ${__docker} system prune -af
+  }"
 
   unset __docker
 fi
