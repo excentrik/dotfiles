@@ -74,7 +74,7 @@ To update submodules without running install scripts, use `git submodule update 
 | git_setup.sh | Copies `~/.gitconfig` to `~/.gitconfig_local` if needed; adds GIT_SSH and (on OSX) credential helper |
 | python_setup.sh | Python environment setup (role: python) |
 | brew_setup.sh | Homebrew initialization (role: brew, OSX) |
-| xcode_cli_setup.sh | Xcode Command Line Tools setup only; does not install full Xcode (role: xcode_cli, OSX) |
+| xcode_cli_setup.sh | Xcode Command Line Tools setup only; does not install full Xcode (role: xcode_cli, OSX). Headless/CI macOS hosts must preinstall CLT (e.g. via MDM or `xcode-select --install` in a setup step) before running `./install`; the helper deliberately skips its interactive GUI prompt when stdin is not a TTY or `DOTFILES_NO_INTERACTIVE` is set. |
 | copilot_setup.sh | Installs GitHub Copilot CLI with npm when `copilot` is missing |
 | ohmyzsh_setup.sh | Copies `~/.oh-my-zsh` from the checked-out Oh My Zsh submodule when safe (role: ohmyzsh) |
 | vim_plugin_install.sh | Installs Vim plugins (role: vim_plugins) |
