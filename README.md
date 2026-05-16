@@ -52,6 +52,20 @@ You can run these installation commands safely multiple times, if you think that
 
 `./install` updates submodules to the commits recorded by this repository by default. To intentionally update submodules from their upstream remotes before installing, set `DOTFILES_UPDATE_SUBMODULES=1`.
 
+To update submodules without running any install steps, use Git directly:
+
+```bash
+~/.dotfiles$ git submodule update --init --recursive
+```
+
+That checks out the submodule commits recorded by this repository. To intentionally move submodules to the latest commits from their configured upstream branches without installing:
+
+```bash
+~/.dotfiles$ git submodule update --init --recursive --remote
+```
+
+After using `--remote`, review `git status` and commit any submodule gitlink changes you want to keep.
+
 ## Validation
 
 Run non-mutating validation checks before changing install scripts or role metadata:

@@ -41,6 +41,8 @@ This document describes how the repo is organized and how to extend it. For inst
 - **install-role** — Run one or more roles only (e.g. `./install-role vim git`). Does not run base or full host. Dotbot flags can appear before or after role names.
 - **generate_shortcuts_documentation.sh** — Regenerates the “Commands available” section in README.md by running `list_dotfiles_functions`. **Must be run in a shell that has already sourced the dotfiles** (e.g. `source ~/.bash_profile`), since it relies on aliases/functions from `~/.aliases/`.
 
+To update submodules without running install scripts, use `git submodule update --init --recursive` for recorded commits or add `--remote` to intentionally advance submodules from upstream branches.
+
 ### helpers/
 
 | Script | Purpose |
