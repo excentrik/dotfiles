@@ -17,6 +17,21 @@ if ! command -v brew >/dev/null 2>&1; then
   exit 0
 fi
 
+# On macOS, Homebrew requires the Xcode Command Line Tools. The xcode_cli role
+# is intentionally ordered before brew in meta/hosts/osx.yaml so a normal
+# `./install` provisions CLT first. Warn (but do not fail) when this helper is
+# invoked in isolation (e.g. `./install-role brew`) on a host where CLT are
+# missing, because most brew operations will then fail with cryptic linker
+# errors deeper in the run.
+case "$OSTYPE" in
+  darwin*)
+    if ! /usr/bin/xcode-select -p >/dev/null 2>&1; then
+      echo "warning: Xcode Command Line Tools not found (xcode-select -p failed)." >&2
+      echo "         Run the xcode_cli role first (or 'xcode-select --install') before using brew." >&2
+    fi
+    ;;
+esac
+
 # Make sure we’re using the latest Homebrew.
 while true; do
     read -r -p "Do you want to update homebrew? [y/N]?" yn
