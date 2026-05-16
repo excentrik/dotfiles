@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Get the IP of the host inside a Docker container.
+# Implementation notes for getHostIp() below:
 #
 # Resolution order:
 #   1. host.docker.internal      (Docker Desktop / recent Docker Engine)
@@ -14,6 +14,8 @@
 # route table. When every step fails we explicitly print an error to stderr
 # and return non-zero rather than silently echoing an empty string, so
 # callers like ssh_tunnels.sh fail loudly instead of building bogus URLs.
+
+# Get the IP of the host inside a Docker container
 getHostIp() {
     if [ -n "$HOST_IP" ]; then
         echo "${HOST_IP}"
