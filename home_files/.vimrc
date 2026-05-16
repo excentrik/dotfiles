@@ -4,9 +4,6 @@ set encoding=utf-8
 " The encoding written to file.
 set fileencoding=utf-8
 
-" Display colors correctly
-set term=screen-256color
-
 " Vim with default settings does not allow easy switching between multiple files
 " in the same editor window. Users can use multiple split windows or multiple
 " tab pages to edit multiple files, but it is still best to enable an option to
