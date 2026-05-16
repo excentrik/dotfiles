@@ -1,0 +1,20 @@
+{
+  "description": "In-container aliases role dependencies (docker_container)",
+  "commands": [
+    {
+      "name": "ssh",
+      "apt": ["openssh-client"],
+      "message": "The ssh_tunnels.sh helpers shell out to ssh; install openssh-client (or equivalent) inside the container."
+    },
+    {
+      "name": "nc",
+      "apt": ["netcat-openbsd"],
+      "message": "_assert_ports_are_available in ssh_tunnels.sh uses nc to probe local ports; install netcat-openbsd (or ncat / busybox netcat) inside the container."
+    },
+    {
+      "name": "ip",
+      "apt": ["iproute2"],
+      "message": "docker_container_aliases.sh's getHostIp() falls back to /sbin/ip route parsing when Docker Desktop hostnames are absent; install iproute2 (provides /sbin/ip)."
+    }
+  ]
+}
