@@ -1,2 +1,10 @@
+# Opt-in only: hush is intentionally not listed in any meta/hosts/*.yaml.
+# Enable it per-machine via `./install <host> hush` (or by adding the line
+# `- hush: ~` to a host profile) when the noisy default macOS/Linux login
+# banner should be silenced.
+#
+# Creating ~/.hushlogin suppresses the system login banner. Exporting
+# `HUSH=1` (e.g. from ~/.extra) additionally silences the per-shell
+# alias/source banners emitted by ~/.bashrc, ~/.zshrc, and friends.
 - shell:
   - [touch ~/.hushlogin, Creating hush file]

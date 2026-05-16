@@ -90,6 +90,15 @@ To update submodules without running install scripts, use `git submodule update 
 | brew.sh | Installs Homebrew packages (referenced from legacy `install.conf.yaml`, not from current meta/roles) |
 | osxdefaults.sh | OS X system defaults (same legacy reference) |
 
+## Roles not enabled by any host
+
+The `hush` role is intentionally not listed in any `meta/hosts/*.yaml`. It
+creates `~/.hushlogin` to silence the system login banner and, in concert with
+`HUSH=1` (exported from `~/.extra`), suppresses the per-shell alias/source
+banners emitted by `~/.bashrc`, `~/.zshrc`, and the shared aliases. Opt in
+per-machine via `./install <host> hush` rather than adding it to a host
+profile, so the choice is explicit per environment.
+
 ## Git configuration
 
 The `git` role force-links the managed `home_files/git/gitconfig` to `~/.gitconfig` with Dotbot backups enabled. Before that link is created, `helpers/git_setup.sh` preserves an existing user-owned `~/.gitconfig` as `~/.gitconfig_local` when the local include does not already exist.
