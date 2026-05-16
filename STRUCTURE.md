@@ -43,6 +43,24 @@ This document describes how the repo is organized and how to extend it. For inst
 
 To update submodules without running install scripts, use `git submodule update --init --recursive` for recorded commits or add `--remote` to intentionally advance submodules from upstream branches.
 
+## Alias files
+
+`home_files/.bash_aliases` sources every readable `~/.aliases/*.sh` file at shell startup, but only files linked by `meta/base.yaml` or a selected role are installed into `~/.aliases/`.
+
+| Source file | Installed by | Notes |
+|-------------|--------------|-------|
+| `home_files/.aliases/functions.sh` | `meta/base.yaml` | Common shell functions; always linked before host roles |
+| `home_files/.aliases/common.sh` | `meta/base.yaml` | Common aliases; always linked before host roles |
+| `home_files/.aliases/other.sh` | `meta/base.yaml` | Miscellaneous aliases; always linked before host roles |
+| `home_files/.aliases/claude.sh` | `meta/roles/claude.yaml` | Installed by hosts that include the Claude role |
+| `home_files/.aliases/docker_aliases.sh` | `meta/roles/docker.yaml` | Docker host aliases |
+| `home_files/.aliases/docker_container_aliases.sh` | `meta/roles/docker_container.yaml` | Container-oriented aliases |
+| `home_files/.aliases/ssh_tunnels.sh` | `meta/roles/docker_container.yaml` | Container SSH tunnel helpers |
+| `home_files/.aliases/osx.sh` | `meta/roles/osx.yaml` | macOS-specific aliases |
+| `home_files/.aliases/python_aliases.sh` | `meta/roles/python.yaml` | Python aliases |
+| `home_files/.aliases/ports.sh` | not linked | Dormant; not installed unless a role links it |
+| `home_files/.aliases/tmux.sh` | not linked | Dormant; not installed unless a role links it |
+
 ### helpers/
 
 | Script | Purpose |

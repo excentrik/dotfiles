@@ -31,6 +31,7 @@ There are two zsh variants. The `zsh` role links a plain `home_files/.zshrc`; th
 
 - Add a new role by creating `meta/roles/<name>.yaml`, placing linked dotfiles under `home_files/`, adding helper logic in `helpers/` when needed, and listing the role in the relevant `meta/hosts/<host>.yaml`.
 - Put shared shell functions and aliases in `home_files/.aliases/*.sh`; base and role configs link those files into `~/.aliases/`, where they are auto-sourced in shell glob order.
+- `functions.sh`, `common.sh`, and `other.sh` are always linked by `meta/base.yaml`; `claude.sh`, Docker, OS X, and Python alias files are role-specific; `ports.sh` and `tmux.sh` are dormant unless a future role links them.
 - Add a short comment immediately before aliases/functions that should appear in README command docs; `list_dotfiles_functions` discovers descriptions by grepping those comments from linked alias files.
 - Keep personal or machine-local settings out of the repo. `~/.extra` is sourced by Bash for local shell customizations, and `~/.gitconfig_local` is included by `home_files/git/gitconfig`.
 - `helpers/git_setup.sh` may create `~/.gitconfig_local` from an existing `~/.gitconfig` and appends `GIT_SSH` setup to `~/.extra`; preserve that local-customization behavior.
