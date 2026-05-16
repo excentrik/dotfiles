@@ -33,7 +33,7 @@ There are two zsh variants. The `zsh` role links a plain `home_files/.zshrc`; th
 - Add a new role by creating `meta/roles/<name>.yaml`, placing linked dotfiles under `home_files/`, adding helper logic in `helpers/` when needed, and listing the role in the relevant `meta/hosts/<host>.yaml`.
 - Add Linux/WSL apt package dependencies for a role in `meta/packages/<role>.json`; normal installs report missing packages, and only bootstrap mode installs them.
 - Put shared shell functions and aliases in `home_files/.aliases/*.sh`; base and role configs link those files into `~/.aliases/`, where they are auto-sourced in shell glob order.
-- `functions.sh`, `common.sh`, and `other.sh` are always linked by `meta/base.yaml`; Claude, Docker, container, OS X, and Python alias files are role-specific.
+- `functions.sh`, `common.sh`, and `other.sh` are always linked by `meta/base.yaml`; Claude, Copilot, Docker, container, OS X, and Python alias files are role-specific.
 - Add a short comment immediately before aliases/functions that should appear in README command docs; `list_dotfiles_functions` discovers descriptions by grepping those comments from linked alias files.
 - Keep personal or machine-local settings out of the repo. `~/.extra` is sourced by Bash for local shell customizations, and `~/.gitconfig_local` is included by `home_files/git/gitconfig`.
 - Keep shared Git defaults in `home_files/git/gitconfig`; machine-local identity and credential helpers belong in `~/.gitconfig_local`, which `helpers/git_setup.sh` preserves before the forced `~/.gitconfig` link is applied.
@@ -49,6 +49,7 @@ There are two zsh variants. The `zsh` role links a plain `home_files/.zshrc`; th
 - `helpers/package_bootstrap.py` uses JSON metadata from `meta/packages/` to report or explicitly install Linux/WSL apt dependencies before roles run. Keep macOS/Homebrew package bootstrap as a separate task.
 - `helpers/brew_setup.sh` is interactive and can run `brew update`, `brew upgrade`, and `brew cleanup`; `helpers/osx_setup.sh` asks for sudo and changes macOS defaults. Do not run these as validation.
 - `helpers/claude_setup.sh` installs `@anthropic-ai/claude-code` globally with npm when `claude` is missing.
+- `helpers/copilot_setup.sh` installs `@github/copilot` globally with npm when `copilot` is missing.
 - `helpers/ohmyzsh_setup.sh` copies `~/.oh-my-zsh` from the checked-out `oh-my-zsh` submodule when safe; it exits if `zsh` is unavailable or a conflicting target exists.
 - `home_files/.path` prepends system paths, `~/bin`, `~/.local/bin`, and `.`; Bash and zsh later de-duplicate `PATH` while keeping the first occurrence.
 - The Bash prompt in `home_files/.bash_prompt` computes Git branch details on prompt render. The zsh prompt in `home_files/.zsh_prompt` updates Git worktree state on `chpwd`/`precmd` and can skip Git checks when `skip_zsh_git` is set.

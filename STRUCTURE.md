@@ -59,6 +59,7 @@ To update submodules without running install scripts, use `git submodule update 
 | `home_files/.aliases/common.sh` | `meta/base.yaml` | Common aliases; always linked before host roles |
 | `home_files/.aliases/other.sh` | `meta/base.yaml` | Miscellaneous aliases; always linked before host roles |
 | `home_files/.aliases/claude.sh` | `meta/roles/claude.yaml` | Installed by hosts that include the Claude role |
+| `home_files/.aliases/copilot.sh` | `meta/roles/copilot.yaml` | Installed by hosts that include the Copilot role |
 | `home_files/.aliases/docker_aliases.sh` | `meta/roles/docker.yaml` | Docker host aliases |
 | `home_files/.aliases/docker_container_aliases.sh` | `meta/roles/docker_container.yaml` | Container-oriented aliases |
 | `home_files/.aliases/ssh_tunnels.sh` | `meta/roles/docker_container.yaml` | Container SSH tunnel helpers |
@@ -74,6 +75,7 @@ To update submodules without running install scripts, use `git submodule update 
 | python_setup.sh | Python environment setup (role: python) |
 | brew_setup.sh | Homebrew initialization (role: brew, OSX) |
 | xcode_cli_setup.sh | Xcode Command Line Tools setup only; does not install full Xcode (role: xcode_cli, OSX) |
+| copilot_setup.sh | Installs GitHub Copilot CLI with npm when `copilot` is missing |
 | ohmyzsh_setup.sh | Copies `~/.oh-my-zsh` from the checked-out Oh My Zsh submodule when safe (role: ohmyzsh) |
 | vim_plugin_install.sh | Installs Vim plugins (role: vim_plugins) |
 | node_setup.sh | Node environment setup (if used by a role) |

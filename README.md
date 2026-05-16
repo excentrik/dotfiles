@@ -135,6 +135,7 @@ Run `list_dotfiles_functions` to get a list of available commands:
 clcd                                                              # cd into a directory and launch claude
 cleanup_ds                                                        # Recursively delete `.DS_Store` files under the current path
 confirm                                                           # Confirmation wrapper. Usage: confirm rm -rf /tmp/folder
+cpcd                                                              # cd into a directory and launch copilot
 dot_progress                                                      # Fancy progress function from Landley's Aboriginal Linux. Usage: rm -rfv /foo | dot_progress
 escape                                                            # Uber useful when you need to translate a weird path into single-argument string.
 extract                                                           # Extra many types of compressed packages

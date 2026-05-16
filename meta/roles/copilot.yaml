@@ -1,0 +1,9 @@
+- link:
+    ~/.aliases/copilot.sh: home_files/.aliases/copilot.sh
+
+- shell:
+  -
+    command: helpers/copilot_setup.sh
+    stdout: true
+    stdin: true
+    stderr: true
