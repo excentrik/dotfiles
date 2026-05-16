@@ -9,10 +9,26 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 0
 fi
 
+# A "usable" developer dir is one that has at least git or clang under
+# usr/bin. This covers both /Library/Developer/CommandLineTools (CLT) and
+# /Applications/Xcode.app/Contents/Developer (full Xcode) without making
+# assumptions about which the user prefers.
+developer_dir_has_toolchain() {
+  local dir="$1"
+  [[ -d "$dir" ]] && { [[ -x "$dir/usr/bin/git" ]] || [[ -x "$dir/usr/bin/clang" ]]; }
+}
+
+# Respect an already-selected, usable developer dir — including full Xcode.app
+# — so the helper doesn't forcibly switch a user who prefers full Xcode back
+# to CLT.
+current_developer_dir="$(xcode-select -p 2>/dev/null || true)"
+if [[ -n "${current_developer_dir}" ]] && developer_dir_has_toolchain "${current_developer_dir}"; then
+  echo "Xcode toolchain already available at ${current_developer_dir}; nothing to do."
+  exit 0
+fi
+
 clt_is_selected() {
-  local developer_dir
-  developer_dir="$(xcode-select -p 2>/dev/null || true)"
-  [[ "${developer_dir}" == "${CLT_DIR}" ]]
+  [[ "${current_developer_dir}" == "${CLT_DIR}" ]]
 }
 
 clt_is_installed() {
