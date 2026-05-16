@@ -11,7 +11,6 @@
     ~/.bashrc: home_files/.bashrc
     ~/.exports: home_files/.exports
     ~/.functions: home_files/.functions
-    ~/.mongorc.js: home_files/.mongorc.js
     ~/.prompt: home_files/.prompt
     ~/.inputrc: home_files/.inputrc
     ~/.extra: extra/.extra

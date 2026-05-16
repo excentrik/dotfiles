@@ -9,7 +9,7 @@
 - `DOTFILES_UPDATE_SUBMODULES=1 ./install` - intentionally update submodules from upstream remotes before installing; default installs use recorded commits.
 - `DOTFILES_NO_INTERACTIVE=1 ./install` - run the installer without interactive prompts where helpers support it.
 - `helpers/validate.sh` - run non-mutating Linux/WSL-oriented validation.
-- `helpers/validate.sh --all-roles` - include non-Linux roles such as macOS, zsh, and Mongo.
+- `helpers/validate.sh --all-roles` - include non-Linux roles such as macOS and zsh.
 - `source ~/.bash_profile` - reload the installed Bash configuration.
 - `./generate_shortcuts_documentation.sh` - regenerate the README "Commands available" section; run it only from a shell that has already sourced these dotfiles because it calls `list_dotfiles_functions`.
 
@@ -21,7 +21,7 @@ This is a Dotbot-based dotfiles repository with a host/role model. `dotbot` and 
 
 `meta/base.yaml` links core shell files and common alias scripts, then roles layer on package-specific links and setup scripts. Role YAMLs usually link files from `home_files/` into `~` and may invoke setup scripts from `helpers/`; the `brew` role additionally uses Dotbot Brew directives.
 
-Host profiles are intentionally small role lists. `unix` and `wsl` install Bash, prompt, editor, inputrc, Vim, tmux, Python, Git, and Claude aliases/setup. `docker` omits Git and Claude setup but includes Docker/container aliases. `osx` adds Homebrew, Mongo, zsh, OS X defaults, and submodule setup.
+Host profiles are intentionally small role lists. `unix` and `wsl` install Bash, prompt, editor, inputrc, Vim, tmux, Python, Git, and Claude aliases/setup. `docker` omits Git and Claude setup but includes Docker/container aliases. `osx` adds Homebrew, zsh, OS X defaults, and submodule setup.
 
 Shell startup flows through `home_files/.bash_profile` to `home_files/.bashrc`. `.bashrc` sources `~/.path`, `~/.exports`, and `~/.profile`, then calls `load_aliases()` from `~/.bash_aliases`, which sources every readable `~/.aliases/*.sh`. It then sources `~/.bash_prompt`, `~/.startup`, and `~/.extra` when present.
 
@@ -47,4 +47,3 @@ There are two zsh variants. The `zsh` role links a plain `home_files/.zshrc`; th
 - `helpers/ohmyzsh_setup.sh` downloads and executes the upstream Oh My Zsh installer with `wget`; it exits if `zsh` is unavailable.
 - `home_files/.path` prepends system paths, `~/bin`, `~/.local/bin`, and `.`; Bash and zsh later de-duplicate `PATH` while keeping the first occurrence.
 - The Bash prompt in `home_files/.bash_prompt` computes Git branch details on prompt render. The zsh prompt in `home_files/.zsh_prompt` updates Git worktree state on `chpwd`/`precmd` and can skip Git checks when `skip_zsh_git` is set.
-- `meta/roles/mongo.yaml` currently references `home_files/.aliases/mongo.sh`, but that file is absent; account for this before running or modifying the Mongo role.

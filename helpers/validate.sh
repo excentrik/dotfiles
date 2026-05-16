@@ -17,7 +17,7 @@ Runs non-mutating validation checks:
   - Dotbot dry-runs using a temporary HOME
 
 By default, role checks are limited to Linux/WSL-oriented hosts: unix, wsl, docker.
-Use --all-roles to include every role config, including macOS, zsh, and Mongo.
+Use --all-roles to include every role config, including macOS and zsh.
 USAGE
 }
 

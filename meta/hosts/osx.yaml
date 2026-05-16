@@ -3,7 +3,6 @@
 - gitprompt: ~
 - git: ~
 - brew: ~
-- mongo: ~
 - inputrc: ~
 - vim: ~
 - tmux: ~

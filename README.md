@@ -74,7 +74,7 @@ Run non-mutating validation checks before changing install scripts or role metad
 ~/.dotfiles$ helpers/validate.sh
 ```
 
-By default, validation checks Linux/WSL-oriented hosts (`unix`, `wsl`, and `docker`). To include every role, including macOS, zsh, and Mongo roles:
+By default, validation checks Linux/WSL-oriented hosts (`unix`, `wsl`, and `docker`). To include every role, including macOS and zsh roles:
 
 ```bash
 ~/.dotfiles$ helpers/validate.sh --all-roles
