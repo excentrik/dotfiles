@@ -4,10 +4,22 @@
 # ------------------------------------
 
 if [ -x "$(command -v docker)" ]; then
-  if docker ps 2>&1 | grep -q "permission denied"; then
+  # Determine whether docker needs sudo without invoking the docker CLI at
+  # shell init time. The previous `docker ps 2>&1 | grep "permission denied"`
+  # probe was slow and noisy when the daemon was down or unreachable (it
+  # could hang while the socket timed out, and emitted error text to the
+  # pipeline). Use a static socket-permission check instead:
+  #   - macOS / Docker Desktop: /var/run/docker.sock typically does not
+  #     exist; default to plain `docker`.
+  #   - Linux with the user in the `docker` group: socket exists and is
+  #     writable; default to plain `docker`.
+  #   - Linux without docker-group membership: socket exists but is not
+  #     writable; fall back to `sudo -E docker`.
+  #   - Rootless docker: the per-user socket lives under $XDG_RUNTIME_DIR;
+  #     /var/run/docker.sock is usually absent, so plain `docker` is used.
+  __docker="docker"
+  if [ -e /var/run/docker.sock ] && [ ! -w /var/run/docker.sock ]; then
     __docker="sudo -E docker"
-  else
-    __docker="docker"
   fi
 
   # Get latest container ID
