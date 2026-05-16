@@ -6,8 +6,18 @@ elif infocmp xterm-256color >/dev/null 2>&1; then
 	export TERM='xterm-256color';
 fi;
 
+# Resolved once at shell start; prompt git helpers short-circuit when git is
+# not installed so each render does not pay for failed exec lookups.
+if command -v git >/dev/null 2>&1; then
+	_PROMPT_HAS_GIT=1
+else
+	_PROMPT_HAS_GIT=0
+fi
+
 _prompt_git_branch() {
 	local branchName='';
+
+	[ "${_PROMPT_HAS_GIT}" = '1' ] || return
 
 	# Check if the current directory is in a Git repository.
 	if [ $(git rev-parse --is-inside-work-tree &>/dev/null; echo "${?}") == '0' ]; then
@@ -26,6 +36,8 @@ _prompt_git_branch() {
 
 _prompt_git_status() {
 	local s='';
+
+	[ "${_PROMPT_HAS_GIT}" = '1' ] || return
 
 	# Check if the current directory is in a Git repository.
 	if [ $(git rev-parse --is-inside-work-tree &>/dev/null; echo "${?}") == '0' ]; then
@@ -66,6 +78,8 @@ _prompt_git_status() {
 }
 
 _prompt_git() {
+	[ "${_PROMPT_HAS_GIT}" = '1' ] || return
+
 	# Check if the current directory is in a Git repository.
 	if [ $(git rev-parse --is-inside-work-tree &>/dev/null; echo "${?}") == '0' ]; then
         #local s=$(_prompt_git_status);
