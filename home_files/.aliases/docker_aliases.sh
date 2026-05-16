@@ -52,7 +52,11 @@ if [ -x "$(command -v docker)" ]; then
       echo 'You cannot connect to a container from inside another container'
       return 1
     fi
-    ${__docker}-compose exec --user rohea php-nginx bash
+    if ${__docker} compose version >/dev/null 2>&1; then
+      ${__docker} compose exec --user rohea php-nginx bash
+    else
+      ${__docker}-compose exec --user rohea php-nginx bash
+    fi
   }"
 
   # Cleanup docker images and containers
