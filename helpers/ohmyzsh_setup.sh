@@ -61,8 +61,12 @@ if [ -e "${OH_MY_ZSH_TARGET}" ]; then
     exit 0
   fi
 
-  echo "Refusing to overwrite existing ${OH_MY_ZSH_TARGET}; move it aside before installing the ohmyzsh role." >&2
-  exit 1
+  # Move an unrelated ${OH_MY_ZSH_TARGET} aside so the role stays idempotent
+  # instead of failing on every re-run. The original contents are preserved at
+  # a timestamped sibling path so users can recover anything custom.
+  BACKUP_TARGET="${OH_MY_ZSH_TARGET}.backup.$(date +%Y%m%d%H%M%S)"
+  echo "Existing ${OH_MY_ZSH_TARGET} is not an Oh My Zsh checkout; moving it to ${BACKUP_TARGET}."
+  mv "${OH_MY_ZSH_TARGET}" "${BACKUP_TARGET}"
 fi
 
 copy_oh_my_zsh
