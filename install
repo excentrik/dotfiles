@@ -30,9 +30,6 @@ detect_host() {
         echo "unix"
       fi
       ;;
-    msys)
-      echo "gitbash"
-      ;;
     *)
       echo "unknown platform: $OSTYPE. Aborting" >&2
       return 1
