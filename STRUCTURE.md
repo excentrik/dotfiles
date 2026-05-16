@@ -79,3 +79,9 @@ To update submodules without running install scripts, use `git submodule update 
 |--------|---------|
 | brew.sh | Installs Homebrew packages (referenced from legacy `install.conf.yaml`, not from current meta/roles) |
 | osxdefaults.sh | OS X system defaults (same legacy reference) |
+
+## Git configuration
+
+The `git` role force-links the managed `home_files/git/gitconfig` to `~/.gitconfig` with Dotbot backups enabled. Before that link is created, `helpers/git_setup.sh` preserves an existing user-owned `~/.gitconfig` as `~/.gitconfig_local` when the local include does not already exist.
+
+`home_files/git/gitconfig` should contain shared defaults only. Machine-local identity, credential helpers, and other personal overrides belong in `~/.gitconfig_local`, which is included by the managed config and is not tracked by this repository. Repeat installs do not copy the managed `~/.gitconfig` symlink back into `~/.gitconfig_local`, which avoids duplicating the committed config in the local include.

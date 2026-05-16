@@ -11,4 +11,5 @@
       create: true
       relink: true
       force: true
+      backup: true
     ~/.gitignore_global: home_files/git/gitignore_global

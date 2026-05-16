@@ -34,6 +34,7 @@ There are two zsh variants. The `zsh` role links a plain `home_files/.zshrc`; th
 - `functions.sh`, `common.sh`, and `other.sh` are always linked by `meta/base.yaml`; Claude, Docker, container, OS X, and Python alias files are role-specific.
 - Add a short comment immediately before aliases/functions that should appear in README command docs; `list_dotfiles_functions` discovers descriptions by grepping those comments from linked alias files.
 - Keep personal or machine-local settings out of the repo. `~/.extra` is sourced by Bash for local shell customizations, and `~/.gitconfig_local` is included by `home_files/git/gitconfig`.
+- Keep shared Git defaults in `home_files/git/gitconfig`; machine-local identity and credential helpers belong in `~/.gitconfig_local`, which `helpers/git_setup.sh` preserves before the forced `~/.gitconfig` link is applied.
 - `helpers/git_setup.sh` may create `~/.gitconfig_local` from an existing `~/.gitconfig` and appends `GIT_SSH` setup to `~/.extra`; preserve that local-customization behavior.
 - `install.conf.yaml`, `system/brew.sh`, and `system/osxdefaults.sh` are legacy references and are not used by the current `./install` flow.
 - The `hush` role creates `~/.hushlogin`; setting `HUSH=1` also suppresses shell startup alias/source messages.
