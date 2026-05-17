@@ -26,6 +26,8 @@ Host profiles are intentionally small role lists. `unix` and `wsl` install Bash,
 
 Shell startup flows through `home_files/.bash_profile` to `home_files/.bashrc`. `.bashrc` sources `~/.path`, `~/.exports`, and `~/.profile`, then calls `load_aliases()` from `~/.bash_aliases`, which sources every readable `~/.aliases/*.sh`. It then sources `~/.bash_prompt`, `~/.startup`, and `~/.extra` when present.
 
+`.bashrc` and `.zshrc` share most behaviour. When changing common functionality (PATH manipulation, alias loading, completion bootstrap), apply the change to both files — divergence between them tends to surface as "works in one shell, not the other" later. Never edit installed dotfiles directly in `~/`; they are symlinks pointing back into `home_files/` and any edit you make there is effectively an edit to this repo.
+
 There are two zsh variants. The `zsh` role links a plain `home_files/.zshrc`; the `ohmyzsh` role runs `helpers/ohmyzsh_setup.sh`, links the shared zsh support files, and links `home_files/.ohmyzshrc`. Do not add both to the same host profile.
 
 ## Conventions
@@ -41,6 +43,12 @@ There are two zsh variants. The `zsh` role links a plain `home_files/.zshrc`; th
 - `install.conf.yaml`, `system/brew.sh`, and `system/osxdefaults.sh` are legacy references and are not used by the current `./install` flow.
 - The `hush` role creates `~/.hushlogin`; setting `HUSH=1` also suppresses shell startup alias/source messages.
 - Only files linked from `meta/base.yaml` or `meta/roles/*.yaml` are installed.
+
+## Validating changes
+
+- `helpers/validate.sh` runs the project's full Linux/WSL validation; pass `--all-roles` to include macOS/zsh roles.
+- For a quick syntax-only sanity check on a single file, `bash -n <file>` and `zsh -n <file>` parse without executing.
+- After running `./install`, sanity-check the link layout with `find ~ -maxdepth 1 -type l -xtype l` — any output is a broken symlink that should be investigated before logging out.
 
 ## Role and helper details
 
