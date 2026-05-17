@@ -45,7 +45,11 @@ fi
 case "${EDITOR}" in
 vi*)   grep -q -F "EDITOR=$EDITOR" ~/.extra || printf "\nexport EDITOR=$EDITOR\nexport VISUAL=$EDITOR" >> ~/.extra ;;
 nano*) grep -q -F "EDITOR=$EDITOR" ~/.extra || printf "\nexport EDITOR=$EDITOR\nexport VISUAL=$EDITOR" >> ~/.extra ;;
-*)     echo "unknown editor: $EDITOR. Aborting" && exit 1 ;;
+# The user has $EDITOR set to something we don't know how to seed into
+# ~/.extra (bbedit, code --wait, emacsclient, helix, ...). That's a
+# deliberate choice from their shell profile; don't try to override it
+# and don't abort the installer.
+*)     echo "keeping existing EDITOR=$EDITOR; not modifying ~/.extra" ;;
 esac
 
 # Try to use a UI editor when not connected through SSH
