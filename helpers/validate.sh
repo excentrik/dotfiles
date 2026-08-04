@@ -576,6 +576,12 @@ SH
     return 1
   fi
 
+  if [ "$("${VALIDATE_PYTHON}" -c 'import os, stat, sys; print(oct(stat.S_IMODE(os.stat(sys.argv[1]).st_mode)))' "${tmp_home}/.tmux/resurrect")" != "0o700" ]; then
+    echo "Expected tmux-resurrect storage to use mode 0700." >&2
+    rm -rf "${tmp_home}" "${tmp_bin}"
+    return 1
+  fi
+
   rm -rf "${tmp_home}" "${tmp_bin}"
 }
 

@@ -5,6 +5,7 @@ set -euo pipefail
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 managed_tpm="${BASE_DIR}/tpm"
 tpm_dir="$HOME/.tmux/plugins/tpm"
+resurrect_storage_dir="$HOME/.tmux/resurrect"
 
 link_managed_tpm() {
   if [ ! -f "$managed_tpm/tpm" ] || [ ! -x "$managed_tpm/bin/install_plugins" ]; then
@@ -53,6 +54,8 @@ ensure_tpm_available() {
 }
 
 ensure_tpm_available
+mkdir -p "$resurrect_storage_dir"
+chmod 700 "$resurrect_storage_dir"
 
 if ! command -v tmux >/dev/null 2>&1; then
   echo "tmux is not installed; skipping tmux plugin setup." >&2
