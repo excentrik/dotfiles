@@ -118,7 +118,7 @@ if [ -x "$(command -v docker)" ]; then
   unset __docker
 fi
 
-if [ -x "$(command -v kubectl)" ]; then
+if [ -n "${BASH_VERSION:-}" ] && [ -x "$(command -v kubectl)" ]; then
   source <(kubectl completion bash)
 fi
 

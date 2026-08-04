@@ -12,6 +12,30 @@ fi
 if [ -d "$HOME/.local/bin" ]; then
     PATH="$HOME/.local/bin:$PATH"
 fi
-PATH=".:${PATH}"
-export PATH
 
+# Add Bun's user-local install location to PATH if it exists
+if [ -d "${BUN_INSTALL:-$HOME/.bun}/bin" ]; then
+    export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+    PATH="$BUN_INSTALL/bin:$PATH"
+fi
+
+# Add Homebrew (Apple Silicon default prefix) to PATH so brew-installed
+# binaries are picked up before macOS' system tools.
+if [ -x /opt/homebrew/bin/brew ]; then
+    HOMEBREW_PREFIX=$(/opt/homebrew/bin/brew --prefix 2>/dev/null)
+    if [ -n "${HOMEBREW_PREFIX}" ] && [[ "${PATH}" != *"${HOMEBREW_PREFIX}/bin"* ]]; then
+        PATH="${HOMEBREW_PREFIX}/bin:${HOMEBREW_PREFIX}/sbin:${PATH}"
+    fi
+fi
+
+# Add Visual Studio Code CLI (`code`) when running on macOS.
+if [[ "${OSTYPE:-}" == darwin* ]] && [ -d "/Applications/Visual Studio Code.app" ]; then
+    PATH="$PATH:/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
+fi
+
+PATH=".:${PATH}"
+
+# Remove duplicates while preserving first-seen order.
+PATH=$(echo ${PATH} | /usr/bin/awk -v RS=: -v ORS=: '!($0 in a) {a[$0]; print}')
+PATH="${PATH%:}"    # remove trailing colon
+export PATH

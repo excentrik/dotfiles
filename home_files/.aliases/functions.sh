@@ -92,6 +92,45 @@ function fs() {
     fi;
 }
 
+# Run one command for multiple final arguments in parallel. Usage: b kubectl logs -f -- pod-1 pod-2
+b() {
+    local separator_seen=0
+    local exit_status=0
+    local item
+    local pid
+    local -a cmd
+    local -a pids
+
+    while [ "$#" -gt 0 ]; do
+        if [ "$1" = "--" ]; then
+            separator_seen=1
+            shift
+            break
+        fi
+        cmd+=("$1")
+        shift
+    done
+
+    if [ "${separator_seen}" -ne 1 ] || [ "${#cmd[@]}" -eq 0 ] || [ "$#" -eq 0 ]; then
+        echo "Usage: b <command> [args...] -- <item> [item...]" >&2
+        return 2
+    fi
+
+    for item in "$@"; do
+        (
+            set -o pipefail
+            "${cmd[@]}" "$item" 2>&1 | awk -v prefix="[${item}] " '{ print prefix $0; fflush() }'
+        ) &
+        pids+=("$!")
+    done
+
+    for pid in "${pids[@]}"; do
+        wait "${pid}" || exit_status=1
+    done
+
+    return "${exit_status}"
+}
+
 
 if hash git 2>/dev/null; then
 # Use Git’s colored diff when available

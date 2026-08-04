@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "tmux-session requires tmux to be installed." >&2
+  exit 1
+fi
+
+raw_session="${1:-$(basename "$PWD")}"
+session="$(printf '%s' "$raw_session" | tr -c '[:alnum:]_.-' '_' | sed 's/^_*//; s/_*$//')"
+root="${TMUX_SESSION_ROOT:-$PWD}"
+
+if [ -z "$session" ]; then
+  session="main"
+fi
+
+join_session() {
+  if [ "${TMUX_SESSION_NO_ATTACH:-}" = "1" ]; then
+    return
+  fi
+
+  if [ -n "${TMUX:-}" ]; then
+    tmux switch-client -t "$session"
+  else
+    exec tmux attach-session -t "$session"
+  fi
+}
+
+if tmux has-session -t "$session" 2>/dev/null; then
+  join_session
+  exit 0
+fi
+
+tmux new-session -d -s "$session" -n control -c "$root"
+tmux new-window -t "$session:" -n edit -c "$root"
+tmux new-window -t "$session:" -n run -c "$root"
+tmux new-window -t "$session:" -n ops -c "$root"
+tmux new-window -t "$session:" -n scratch -c "$root"
+tmux select-window -t "$session:control"
+
+join_session

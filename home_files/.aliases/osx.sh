@@ -11,3 +11,8 @@ function manpdf() {
  man -t "${1}" | open -f -a /Applications/Preview.app/
 }
 
+# Attach to the default tmux session using iTerm2 native tmux integration.
+alias txiterm='tmux -CC new -As main'
+
+# Attach to a named tmux session using iTerm2 native tmux integration.
+alias txa='tmux -CC attach -t'

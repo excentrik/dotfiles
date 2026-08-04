@@ -55,6 +55,23 @@ _contains_element () {
   return 1
 }
 
+_dotfiles_function_doc_sources() {
+  local include_profile_extra="${1:-false}"
+  local file
+
+  if [ -d "${HOME}/.aliases" ]; then
+    for file in "${HOME}"/.aliases/*.sh; do
+      [ -r "${file}" ] && [ -f "${file}" ] && printf '%s\0' "${file}"
+    done
+  fi
+
+  if [ "${include_profile_extra}" = true ]; then
+    for file in "${HOME}/.profile" "${HOME}/.extra"; do
+      [ -r "${file}" ] && [ -f "${file}" ] && printf '%s\0' "${file}"
+    done
+  fi
+}
+
 # List all function available in a shell
 list_dotfiles_functions() {
   usage="$(basename "$0") [-h] [-f|--full] -- program to display available aliases and functions
@@ -89,8 +106,15 @@ list_dotfiles_functions() {
 
   local OUTPUT=""
   local COMMENT
+  local DOC_SOURCES=()
+  local DOC_SOURCE
+  while IFS= read -r -d '' DOC_SOURCE; do
+    DOC_SOURCES+=("${DOC_SOURCE}")
+  done < <(_dotfiles_function_doc_sources false)
+
   OUTPUT="$(while read -r CMD; do
-      COMMENT=$(find -L ${HOME}/.aliases/* -exec readlink -f {} \; | xargs grep -h -B 1 "${CMD}() {" | grep --colour='never' "# ")
+      [ "${#DOC_SOURCES[@]}" -gt 0 ] || continue
+      COMMENT=$(grep -F -h -B 1 "${CMD}() {" "${DOC_SOURCES[@]}" | grep --colour='never' "# ")
       # remove leading whitespace characters
       COMMENT="${COMMENT#"${COMMENT%%[![:space:]]*}"}"
       [[ -z $COMMENT ]] && continue
@@ -102,6 +126,11 @@ list_dotfiles_functions() {
   local EXCLUDED_ALIASES="($(type get_ssh_hosts >/dev/null 2>/dev/null && get_ssh_hosts | cut -d'=' -f1))"
 
   local ALIAS
+  local ALIAS_DOC_SOURCES=()
+  while IFS= read -r -d '' DOC_SOURCE; do
+    ALIAS_DOC_SOURCES+=("${DOC_SOURCE}")
+  done < <(_dotfiles_function_doc_sources true)
+
   OUTPUT+="$(while read -r CMD; do
     if [ ${SHOW_SYSTEM_COMMANDS} = false ] ; then
       if [[ -n $(type -a $CMD 2>/dev/null | grep -v alias) ]]; then
@@ -111,7 +140,8 @@ list_dotfiles_functions() {
     _contains_element "${CMD}" "${EXCLUDED_ALIASES[@]}" && continue
     ALIAS=$(alias "${CMD}" | sed -e "s/^alias //")
 
-    COMMENT=$(find -L ${HOME}/.aliases/* ${HOME}/.profile ${HOME}/.extra -exec readlink -f {} \; | xargs grep -h -B 1 "alias ${CMD}=" | grep --colour='never' "# " | head -1 | xargs)
+    [ "${#ALIAS_DOC_SOURCES[@]}" -gt 0 ] || continue
+    COMMENT=$(grep -F -h -B 1 "alias ${CMD}=" "${ALIAS_DOC_SOURCES[@]}" | grep --colour='never' "# " | head -1 | xargs)
 
     # remove leading whitespace characters
     COMMENT="${COMMENT#"${COMMENT%%[![:space:]]*}"}"

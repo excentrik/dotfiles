@@ -6,6 +6,8 @@ case $- in
       *) return;;
 esac
 
+emulate sh -c "source $HOME/.exports"
+emulate sh -c "source $HOME/.profile"
 
 #------------------------------
 # Zsh stuff
@@ -119,3 +121,21 @@ unset ZSH_FILES;
 unset file;
 
 test -e "${HOME}/.iterm2_shell_integration.zsh" && export ITERM2_SQUELCH_MARK=1 && source "${HOME}/.iterm2_shell_integration.zsh"
+
+if [ -d "${HOME}/.volta" ]; then
+  export VOLTA_HOME="$HOME/.volta"
+  export PATH="$VOLTA_HOME/bin:$PATH"
+fi
+
+# Keep shared PATH composition in ~/.path as the final PATH mutator.
+source "$HOME/.path"
+
+if command -v direnv >/dev/null 2>&1; then
+  eval "$(direnv hook zsh)"
+fi
+
+# Atuin (shell history) integrates natively with zsh via add-zsh-hook.
+# Keep this last so Atuin owns the Ctrl-R key binding; up-arrow stays native.
+if command -v atuin >/dev/null 2>&1; then
+  eval "$(atuin init zsh --disable-up-arrow)"
+fi
