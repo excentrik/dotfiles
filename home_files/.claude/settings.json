@@ -1,0 +1,44 @@
+{
+  "cleanupPeriodDays": 30,
+  "env": {
+    "MCP_TIMEOUT": "120000",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "allow": [],
+    "deny": [
+      "Read(~/**/*.env)",
+      "Edit(~/**/*.env)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Read(./**/*.p12)",
+      "Read(~/.netrc)",
+      "Read(./**/*.pfx)",
+      "Read(./**/*.cer)",
+      "Read(./**/*.crt)",
+      "Read(./**/*.der)",
+      "Read(./**/*.keystore)",
+      "Read(~/.azure/**)",
+      "Edit(~/.azure/**)",
+      "Read(~/.azure-devops/**)",
+      "Edit(~/.azure-devops/**)",
+      "Read(**/.pgpass)",
+      "Read(**/terraform.tfstate)",
+      "Read(**/.terraform/**)",
+      "Edit(**/terraform.tfstate)",
+      "Bash(ssh:*)",
+      "Bash(scp:*)",
+      "Bash(nc:*)",
+      "Bash(netcat:*)",
+      "Bash(telnet:*)"
+    ],
+    "defaultMode": "auto"
+  },
+  "model": "opus[1m]",
+  "outputStyle": "direct_fable",
+  "effortLevel": "high",
+  "theme": "dark-ansi",
+  "autoCompactEnabled": false,
+  "skipAutoPermissionPrompt": true,
+  "useAutoModeDuringPlan": false
+}

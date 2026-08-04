@@ -1,0 +1,17 @@
+{
+  "effortLevel": "high",
+  "experimental": true,
+  "footer": {
+    "showAgent": true,
+    "showBranch": true,
+    "showCodeChanges": false,
+    "showContextWindow": true,
+    "showCustom": true,
+    "showDirectory": true,
+    "showModelEffort": true,
+    "showQuota": false,
+    "showUsername": false
+  },
+  "includeCoAuthoredBy": false,
+  "model": "gpt-5.3-codex"
+}
