@@ -1,0 +1,13 @@
+yabai -m config layout float
+
+# Restore window layout when a display is added (e.g. plugging into a dock)
+# Debounce: kill any pending restore and start a new 15s timer.
+# This way only the LAST display_added event triggers a restore.
+yabai -m signal --add event=display_added action="
+    PIDFILE=/tmp/window-layout-restore.pid
+    if [ -f \$PIDFILE ]; then
+        kill \$(cat \$PIDFILE) 2>/dev/null
+    fi
+    (sleep 30 && ~/bin/window-layout restore >> /tmp/yabai_\$(whoami).out.log 2>> /tmp/yabai_\$(whoami).err.log) &
+    echo \$! > \$PIDFILE
+"

@@ -1,0 +1,10 @@
+- brew:
+    - atuin
+
+- link:
+    ~/.config/atuin/config.toml:
+      path: home_files/atuin/config.toml
+      create: true
+      relink: true
+      force: true
+      backup: true

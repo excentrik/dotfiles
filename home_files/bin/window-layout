@@ -1,0 +1,1529 @@
+#!/usr/bin/env bash
+# window-layout - Save and restore window positions per display configuration
+# Uses yabai (query only) + AppleScript to move fullscreen windows between displays.
+# Requires: yabai running, Accessibility permissions for Terminal/shell
+
+set -euo pipefail
+
+LAYOUT_DIR="$HOME/.window-layouts"
+LOG_FILE="$HOME/.window-layouts/debug.log"
+STALE_DAYS=30
+
+log_debug() {
+    mkdir -p "$LAYOUT_DIR"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
+}
+
+yabai_query_json() {
+    local domain="$1"
+    python3 - "$domain" <<'PY'
+import subprocess
+import sys
+
+domain = sys.argv[1]
+try:
+    result = subprocess.run(
+        ['yabai', '-m', 'query', '--' + domain],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+except subprocess.TimeoutExpired:
+    print(f"yabai query --{domain} timed out", file=sys.stderr)
+    sys.exit(124)
+
+if result.returncode != 0:
+    sys.stderr.write(result.stderr)
+    sys.exit(result.returncode)
+
+print(result.stdout, end='')
+PY
+}
+
+json_array_count() {
+    python3 -c '
+import json
+import sys
+
+data = json.load(sys.stdin)
+if not isinstance(data, list):
+    raise SystemExit("expected JSON array")
+print(len(data))
+'
+}
+
+query_windows_for_save() {
+    local attempts=5
+    local delay=2
+    local windows_json=""
+    local count=""
+    local rc=0
+    local err_file
+    err_file=$(mktemp "${TMPDIR:-/tmp}/window-layout-yabai-windows.XXXXXX")
+
+    for i in $(seq 1 "$attempts"); do
+        if windows_json=$(yabai_query_json windows 2>"$err_file"); then
+            if count=$(printf '%s' "$windows_json" | json_array_count 2>/dev/null); then
+                if [[ "$count" -gt 0 ]]; then
+                    rm -f "$err_file"
+                    printf '%s' "$windows_json"
+                    return 0
+                fi
+                log_debug "SAVE: yabai query --windows returned 0 window(s), retry $i/$attempts"
+            else
+                log_debug "SAVE: yabai query --windows returned invalid JSON, retry $i/$attempts"
+            fi
+        else
+            rc=$?
+            log_debug "SAVE: yabai query --windows failed rc=$rc, retry $i/$attempts: $(tr '\n' ' ' < "$err_file")"
+        fi
+        sleep "$delay"
+    done
+
+    echo "yabai query --windows did not return any windows after $attempts attempts. $(tr '\n' ' ' < "$err_file")" >&2
+    rm -f "$err_file"
+    return 1
+}
+
+get_config_string() {
+    swift -e '
+import Cocoa
+var parts: [String] = []
+for screen in NSScreen.screens {
+    let f = screen.frame
+    let name = screen.localizedName.isEmpty ? "display-\(Int(f.size.width))x\(Int(f.size.height))" : screen.localizedName
+    parts.append("\(name):\(Int(f.size.width))x\(Int(f.size.height))")
+}
+parts.sort()
+print(parts.joined(separator: "|"))
+'
+}
+
+get_config_id() {
+    local config_string
+    config_string=$(get_config_string)
+    log_debug "Config string: $config_string"
+    echo "$config_string" | md5
+}
+
+# Find the best matching saved config for the current displays.
+# Matches by display names present in both, falling back to display count.
+find_best_config() {
+    local current_names
+    current_names=$(swift -e '
+import Cocoa
+var names: [String] = []
+for screen in NSScreen.screens {
+    let n = screen.localizedName
+    if !n.isEmpty { names.append(n) }
+}
+names.sort()
+print(names.joined(separator: "|"))
+')
+    log_debug "MATCH: current display names: $current_names"
+
+    local best_file=""
+    local best_score=0
+
+    for f in "$LAYOUT_DIR"/*; do
+        [[ -f "$f" ]] || continue
+        [[ "$f" == *.bak ]] && continue
+        [[ "$f" == */debug.log ]] && continue
+
+        local score
+        score=$(python3 -c "
+import json
+current_names = set('$current_names'.split('|')) - {''}
+saved = json.load(open('$f'))
+saved_names = set(e['display'] for e in saved) - {'unknown'}
+overlap = len(current_names & saved_names)
+print(overlap)
+" 2>/dev/null || echo 0)
+
+        log_debug "MATCH: $f score=$score"
+        if [[ "$score" -gt "$best_score" ]]; then
+            best_score="$score"
+            best_file="$f"
+        fi
+    done
+
+    if [[ -n "$best_file" && "$best_score" -gt 0 ]]; then
+        log_debug "MATCH: best=$best_file score=$best_score"
+        basename "$best_file"
+    else
+        log_debug "MATCH: no matching config found"
+        echo ""
+    fi
+}
+
+cleanup_stale() {
+    [[ -d "$LAYOUT_DIR" ]] || return 0
+    local count
+    count=$(find "$LAYOUT_DIR" -type f -mtime +"$STALE_DAYS" | wc -l | tr -d ' ')
+    if [[ "$count" -gt 0 ]]; then
+        find "$LAYOUT_DIR" -type f -mtime +"$STALE_DAYS" -delete
+        echo "Cleaned up $count stale layout(s)"
+    fi
+}
+
+# Get display metadata via Swift. UUID is preferred for identity; slot is a
+# stable fallback for a single display arrangement when UUIDs are unavailable.
+get_display_map_json() {
+    swift -e '
+import Cocoa
+import Foundation
+import CoreGraphics
+
+func displayUUID(_ screen: NSScreen) -> String {
+    guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+        return ""
+    }
+    let displayID = CGDirectDisplayID(number.uint32Value)
+    guard let uuid = CGDisplayCreateUUIDFromDisplayID(displayID)?.takeRetainedValue(),
+          let uuidString = CFUUIDCreateString(kCFAllocatorDefault, uuid) else {
+        return ""
+    }
+    return uuidString as String
+}
+
+var result: [[String: Any]] = []
+for screen in NSScreen.screens {
+    let f = screen.frame
+    let displayID = (screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value ?? 0
+    result.append([
+        "name": screen.localizedName,
+        "uuid": displayUUID(screen),
+        "display_id": Int(displayID),
+        "x": Int(f.origin.x),
+        "y": Int(f.origin.y),
+        "w": Int(f.size.width),
+        "h": Int(f.size.height),
+    ])
+}
+result.sort {
+    let lx = $0["x"] as? Int ?? 0
+    let rx = $1["x"] as? Int ?? 0
+    if lx != rx { return lx < rx }
+    let ly = $0["y"] as? Int ?? 0
+    let ry = $1["y"] as? Int ?? 0
+    if ly != ry { return ly < ry }
+    return ($0["name"] as? String ?? "") < ($1["name"] as? String ?? "")
+}
+for i in result.indices {
+    result[i]["slot"] = i
+}
+if let data = try? JSONSerialization.data(withJSONObject: result),
+   let str = String(data: data, encoding: .utf8) {
+    print(str)
+}
+'
+}
+
+save_layout() {
+    local config_id
+    config_id=$(get_config_id)
+    mkdir -p "$LAYOUT_DIR"
+
+    local layout_file="$LAYOUT_DIR/$config_id"
+    local tmp_layout_file="$LAYOUT_DIR/.${config_id}.tmp.$$"
+
+    local display_map
+    display_map=$(get_display_map_json)
+
+    local windows_json
+    local displays_json
+    windows_json=$(query_windows_for_save)
+    displays_json=$(yabai_query_json displays)
+
+    if ! DISPLAY_MAP="$display_map" WINDOWS_JSON="$windows_json" DISPLAYS_JSON="$displays_json" python3 <<'PY' > "$tmp_layout_file"; then
+import json
+import os
+import subprocess
+import sys
+
+display_map = json.loads(os.environ['DISPLAY_MAP'])
+displays = json.loads(os.environ['DISPLAYS_JSON'])
+windows = json.loads(os.environ['WINDOWS_JSON'])
+
+def frame_value(frame, key):
+    return int(round(float(frame.get(key, 0))))
+
+def display_key(d):
+    if d.get('uuid'):
+        return f"uuid:{d['uuid']}"
+    if d.get('slot') is not None:
+        return f"slot:{d['slot']}"
+    return f"name:{d.get('name', 'unknown')}"
+
+def same_frame(screen, frame):
+    return (
+        int(screen.get('x', 0)) == frame_value(frame, 'x')
+        and int(screen.get('y', 0)) == frame_value(frame, 'y')
+        and int(screen.get('w', 0)) == frame_value(frame, 'w')
+        and int(screen.get('h', 0)) == frame_value(frame, 'h')
+    )
+
+def match_display(yabai_display):
+    if not yabai_display:
+        return None
+    frame = yabai_display.get('frame', {})
+    exact = [d for d in display_map if same_frame(d, frame)]
+    if len(exact) == 1:
+        return exact[0]
+
+    x = frame_value(frame, 'x')
+    y = frame_value(frame, 'y')
+    w = frame_value(frame, 'w')
+    h = frame_value(frame, 'h')
+    partial = [
+        d for d in display_map
+        if int(d.get('x', 0)) == x and int(d.get('y', 0)) == y
+        and int(d.get('w', 0)) == w and int(d.get('h', 0)) == h
+    ]
+    if len(partial) == 1:
+        return partial[0]
+
+    by_x = [d for d in display_map if int(d.get('x', 0)) == x]
+    if len(by_x) == 1:
+        return by_x[0]
+
+    sorted_yabai = sorted(
+        displays,
+        key=lambda yd: (
+            frame_value(yd.get('frame', {}), 'x'),
+            frame_value(yd.get('frame', {}), 'y'),
+            frame_value(yd.get('frame', {}), 'w'),
+            frame_value(yd.get('frame', {}), 'h'),
+        ),
+    )
+    for slot, yd in enumerate(sorted_yabai):
+        if yd.get('index') == yabai_display.get('index') and slot < len(display_map):
+            return display_map[slot]
+    return None
+
+display_by_yabai_index = {d.get('index'): match_display(d) for d in displays}
+
+def titles_match(left, right):
+    if not left or not right:
+        return False
+    left_norm = normalize_title(left)
+    right_norm = normalize_title(right)
+    if not left_norm or not right_norm:
+        return False
+    if left_norm == right_norm or left_norm.startswith(right_norm) or right_norm.startswith(left_norm):
+        return True
+    left_tokens = set(left_norm.split())
+    right_tokens = set(right_norm.split())
+    if not left_tokens or not right_tokens:
+        return False
+    overlap = len(left_tokens & right_tokens) / max(len(left_tokens), len(right_tokens))
+    return overlap >= 0.45
+
+def normalize_title(title):
+    value = (title or '').lower().replace('…', ' ')
+    chrome_suffix = value.rfind(' - google chrome')
+    if chrome_suffix != -1:
+        value = value[:chrome_suffix]
+    return ' '.join(value.replace('|', ' ').replace('·', ' ').replace('—', ' ').split())
+
+def frame_from_bounds(bounds):
+    try:
+        left, top, right, bottom = [int(float(part)) for part in bounds.split(',')]
+    except Exception:
+        return {}
+    return {'x': left, 'y': top, 'w': right - left, 'h': bottom - top}
+
+def frames_match(left, right):
+    if not left or not right:
+        return False
+    return all(abs(frame_value(left, key) - frame_value(right, key)) <= 3 for key in ('x', 'y', 'w', 'h'))
+
+def chrome_window_metadata():
+    script = r'''
+set rowSep to ASCII character 30
+set colSep to ASCII character 31
+set rows to {}
+tell application "Google Chrome"
+  repeat with w in windows
+    set wid to ""
+    set t to ""
+    set u to ""
+    set b to ""
+    try
+      set wid to id of w as text
+    end try
+    try
+      set t to title of w as text
+    end try
+    try
+      set u to URL of active tab of w as text
+    end try
+    try
+      set bb to bounds of w
+      set b to (item 1 of bb as text) & "," & (item 2 of bb as text) & "," & (item 3 of bb as text) & "," & (item 4 of bb as text)
+    end try
+    set end of rows to wid & colSep & b & colSep & t & colSep & u
+  end repeat
+end tell
+set AppleScript's text item delimiters to rowSep
+return rows as text
+'''
+    try:
+        result = subprocess.run(['osascript'], input=script, capture_output=True, text=True, timeout=10)
+    except subprocess.TimeoutExpired:
+        return []
+    if result.returncode != 0:
+        return []
+    metadata = []
+    for row in result.stdout.split(chr(30)):
+        if not row:
+            continue
+        parts = row.split(chr(31), 3)
+        metadata.append({
+            'window_id': parts[0] if len(parts) > 0 else '',
+            'bounds_frame': frame_from_bounds(parts[1]) if len(parts) > 1 else {},
+            'title': parts[2] if len(parts) > 2 else '',
+            'url': parts[3].strip() if len(parts) > 3 else '',
+        })
+    return metadata
+
+def attach_chrome_urls(entries):
+    metadata = chrome_window_metadata()
+    used = set()
+    chrome_entries = [entry for entry in entries if entry.get('app') == 'Google Chrome']
+
+    def attach(entry, meta, idx):
+        entry['chrome_window_id'] = meta.get('window_id', '')
+        entry['chrome_url'] = meta.get('url', '')
+        used.add(idx)
+
+    for entry in chrome_entries:
+        title = entry.get('title', '')
+        for idx, meta in enumerate(metadata):
+            if idx in used:
+                continue
+            if titles_match(title, meta.get('title', '')):
+                attach(entry, meta, idx)
+                used.add(idx)
+                break
+
+    for entry in chrome_entries:
+        if entry.get('chrome_window_id'):
+            continue
+        frame = entry.get('window_frame', {})
+        matches = [
+            (idx, meta) for idx, meta in enumerate(metadata)
+            if idx not in used and frames_match(frame, meta.get('bounds_frame', {}))
+        ]
+        if len(matches) == 1:
+            idx, meta = matches[0]
+            attach(entry, meta, idx)
+
+    for entry in chrome_entries:
+        if entry.get('chrome_window_id'):
+            continue
+        for idx, meta in enumerate(metadata):
+            if idx not in used:
+                attach(entry, meta, idx)
+                break
+
+    for entry in chrome_entries:
+        entry.setdefault('chrome_window_id', '')
+        entry.setdefault('chrome_url', '')
+
+entries = []
+for w in windows:
+    app = w.get('app', '')
+    if not app:
+        continue
+    title = w.get('title', '')
+    fs = w.get('is-native-fullscreen', False)
+    display = display_by_yabai_index.get(w.get('display'))
+    display_name = display.get('name', 'unknown') if display else 'unknown'
+    entries.append({
+        'app': app,
+        'title': title,
+        'yabai_window_id': w.get('id'),
+        'window_frame': w.get('frame', {}),
+        'display': display_name,
+        'display_uuid': display.get('uuid', '') if display else '',
+        'display_slot': display.get('slot') if display else None,
+        'display_key': display_key(display) if display else 'unknown',
+        'fullscreen': fs,
+    })
+
+attach_chrome_urls(entries)
+json.dump(entries, sys.stdout, ensure_ascii=False, indent=2)
+PY
+        rm -f "$tmp_layout_file"
+        return 1
+    fi
+
+    local window_count
+    if ! window_count=$(python3 -c "import json; print(len(json.load(open('$tmp_layout_file'))))"); then
+        rm -f "$tmp_layout_file"
+        return 1
+    fi
+
+    if [[ "$window_count" -eq 0 ]]; then
+        rm -f "$tmp_layout_file"
+        log_debug "SAVE: refusing to replace $layout_file with 0 captured windows"
+        echo "Refusing to save 0 windows. Existing layout was left unchanged."
+        return 1
+    fi
+
+    # Keep one backup of the previous good save, then atomically replace it.
+    if [[ -f "$layout_file" ]]; then
+        cp "$layout_file" "${layout_file}.bak"
+    fi
+    mv "$tmp_layout_file" "$layout_file"
+
+    log_debug "SAVE: $window_count window(s) for config $config_id"
+    echo "Saved $window_count window(s) for display config $config_id"
+
+    cleanup_stale
+}
+
+wait_for_yabai() {
+    local retries=10
+    for i in $(seq 1 $retries); do
+        if yabai_query_json displays &>/dev/null; then
+            return 0
+        fi
+        log_debug "YABAI: not ready, retry $i/$retries"
+        sleep 3
+    done
+    log_debug "YABAI: gave up after $retries retries"
+    return 1
+}
+
+restore_layout() {
+    log_debug "RESTORE: triggered"
+
+    if ! wait_for_yabai; then
+        log_debug "RESTORE: yabai not ready, aborting"
+        echo "yabai not ready. Aborting restore."
+        return 1
+    fi
+
+    local num_displays
+    num_displays=$(swift -e 'import Cocoa; print(NSScreen.screens.count)')
+    log_debug "RESTORE: detected $num_displays display(s)"
+    if [[ "$num_displays" -ne 3 ]]; then
+        log_debug "RESTORE: skipping — expected 3 displays, found $num_displays"
+        echo "Expected 3 displays (laptop + 2 external), found $num_displays. Skipping restore."
+        return 0
+    fi
+
+    local config_id
+    if [[ -n "${1:-}" ]]; then
+        # Use provided config ID (or prefix match)
+        local match
+        match=$(find "$LAYOUT_DIR" -type f -name "${1}*" 2>/dev/null | head -1)
+        if [[ -z "$match" ]]; then
+            echo "No layout found matching '$1'"
+            echo "Available configs:"
+            list_layouts
+            return 1
+        fi
+        config_id=$(basename "$match")
+    else
+        config_id=$(get_config_id)
+        # If exact config not found, find best match by display names
+        if [[ ! -f "$LAYOUT_DIR/$config_id" ]]; then
+            log_debug "RESTORE: exact config $config_id not found, searching for best match"
+            config_id=$(find_best_config)
+        fi
+    fi
+    log_debug "RESTORE: config_id=$config_id"
+    local layout_file="$LAYOUT_DIR/$config_id"
+
+    if [[ -z "$config_id" || ! -f "$layout_file" ]]; then
+        log_debug "RESTORE: no layout file found at $layout_file"
+        echo "No saved layout for current display config ($config_id)"
+        echo "Run 'window-layout save' first."
+        return 1
+    fi
+
+    local display_map
+    display_map=$(get_display_map_json)
+    log_debug "RESTORE: display_map=$display_map"
+
+    # Compute moves in Python, output as JSON array with source/target display metadata.
+    local moves
+    local moves_file="$LAYOUT_DIR/.moves.$$"
+    local windows_json
+    windows_json=$(yabai_query_json windows)
+    if ! DISPLAY_MAP="$display_map" WINDOWS_JSON="$windows_json" LAYOUT_FILE="$layout_file" LOG_FILE="$LOG_FILE" python3 <<'PY' > "$moves_file"; then
+import json
+import os
+import subprocess
+import sys
+import time
+from collections import Counter
+from datetime import datetime
+
+def yabai_query(domain, retries=10):
+    for _ in range(retries):
+        try:
+            result = subprocess.run(
+                ['yabai', '-m', 'query', '--' + domain],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+        except subprocess.TimeoutExpired:
+            time.sleep(2)
+            continue
+        try:
+            return json.loads(result.stdout)
+        except json.JSONDecodeError:
+            time.sleep(2)
+    raise RuntimeError(f'yabai query --{domain} failed after {retries} retries')
+
+log_file = os.environ['LOG_FILE']
+
+def log(message):
+    with open(log_file, 'a') as f:
+        f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+
+display_map = json.loads(os.environ['DISPLAY_MAP'])
+
+displays = yabai_query('displays')
+log(f"RESTORE: yabai_displays={json.dumps(displays, ensure_ascii=False)}")
+
+def frame_value(frame, key):
+    return int(round(float(frame.get(key, 0))))
+
+def display_key(d):
+    if d.get('uuid'):
+        return f"uuid:{d['uuid']}"
+    if d.get('slot') is not None:
+        return f"slot:{d['slot']}"
+    return f"name:{d.get('name', 'unknown')}"
+
+def display_keys(d):
+    keys = []
+    if not d:
+        return keys
+    if d.get('uuid'):
+        keys.append(f"uuid:{d['uuid']}")
+    if d.get('display_key'):
+        keys.append(d['display_key'])
+    if d.get('slot') is not None:
+        keys.append(f"slot:{d['slot']}")
+    if d.get('name'):
+        keys.append(f"name:{d['name']}")
+    return list(dict.fromkeys(keys))
+
+def saved_display_keys(entry):
+    keys = []
+    if entry.get('display_uuid'):
+        keys.append(f"uuid:{entry['display_uuid']}")
+    if entry.get('display_key'):
+        keys.append(entry['display_key'])
+    if entry.get('display_slot') is not None:
+        keys.append(f"slot:{entry['display_slot']}")
+    if entry.get('display'):
+        keys.append(f"name:{entry['display']}")
+    return list(dict.fromkeys(keys))
+
+def titles_match(left, right):
+    if not left or not right:
+        return False
+    left_norm = normalize_title(left)
+    right_norm = normalize_title(right)
+    if not left_norm or not right_norm:
+        return False
+    if left_norm == right_norm or left_norm.startswith(right_norm) or right_norm.startswith(left_norm):
+        return True
+    left_tokens = set(left_norm.split())
+    right_tokens = set(right_norm.split())
+    if not left_tokens or not right_tokens:
+        return False
+    overlap = len(left_tokens & right_tokens) / max(len(left_tokens), len(right_tokens))
+    return overlap >= 0.45
+
+def normalize_title(title):
+    value = (title or '').lower().replace('…', ' ')
+    chrome_suffix = value.rfind(' - google chrome')
+    if chrome_suffix != -1:
+        value = value[:chrome_suffix]
+    return ' '.join(value.replace('|', ' ').replace('·', ' ').replace('—', ' ').split())
+
+def is_unstable_title(app, title):
+    value = (title or '').strip()
+    if app == 'Google Chrome':
+        return value in ('', '(untitled)', 'New Tab', 'New Tab - Google Chrome')
+    return value == ''
+
+def frame_from_bounds(bounds):
+    try:
+        left, top, right, bottom = [int(float(part)) for part in bounds.split(',')]
+    except Exception:
+        return {}
+    return {'x': left, 'y': top, 'w': right - left, 'h': bottom - top}
+
+def frames_match(left, right):
+    if not left or not right:
+        return False
+    return all(abs(frame_value(left, key) - frame_value(right, key)) <= 3 for key in ('x', 'y', 'w', 'h'))
+
+def chrome_window_metadata():
+    script = r'''
+set rowSep to ASCII character 30
+set colSep to ASCII character 31
+set rows to {}
+tell application "Google Chrome"
+  repeat with w in windows
+    set wid to ""
+    set t to ""
+    set u to ""
+    set b to ""
+    try
+      set wid to id of w as text
+    end try
+    try
+      set t to title of w as text
+    end try
+    try
+      set u to URL of active tab of w as text
+    end try
+    try
+      set bb to bounds of w
+      set b to (item 1 of bb as text) & "," & (item 2 of bb as text) & "," & (item 3 of bb as text) & "," & (item 4 of bb as text)
+    end try
+    set end of rows to wid & colSep & b & colSep & t & colSep & u
+  end repeat
+end tell
+set AppleScript's text item delimiters to rowSep
+return rows as text
+'''
+    try:
+        result = subprocess.run(['osascript'], input=script, capture_output=True, text=True, timeout=10)
+    except subprocess.TimeoutExpired:
+        log("RESTORE: chrome_metadata_timeout")
+        return []
+    if result.returncode != 0:
+        log(f"RESTORE: chrome_metadata_error rc={result.returncode} stderr={result.stderr.strip()}")
+        return []
+    metadata = []
+    for row in result.stdout.split(chr(30)):
+        if not row:
+            continue
+        parts = row.split(chr(31), 3)
+        metadata.append({
+            'window_id': parts[0] if len(parts) > 0 else '',
+            'bounds_frame': frame_from_bounds(parts[1]) if len(parts) > 1 else {},
+            'title': parts[2] if len(parts) > 2 else '',
+            'url': parts[3].strip() if len(parts) > 3 else '',
+        })
+    return metadata
+
+def attach_chrome_urls(entries):
+    metadata = chrome_window_metadata()
+    used = set()
+    chrome_entries = [entry for entry in entries if entry.get('app') == 'Google Chrome']
+
+    def attach(entry, meta, idx):
+        entry['chrome_window_id'] = meta.get('window_id', '')
+        entry['chrome_url'] = meta.get('url', '')
+        used.add(idx)
+
+    for entry in chrome_entries:
+        title = entry.get('title', '')
+        for idx, meta in enumerate(metadata):
+            if idx in used:
+                continue
+            if titles_match(title, meta.get('title', '')):
+                attach(entry, meta, idx)
+                used.add(idx)
+                break
+
+    for entry in chrome_entries:
+        if entry.get('chrome_window_id'):
+            continue
+        frame = entry.get('window_frame', {})
+        matches = [
+            (idx, meta) for idx, meta in enumerate(metadata)
+            if idx not in used and frames_match(frame, meta.get('bounds_frame', {}))
+        ]
+        if len(matches) == 1:
+            idx, meta = matches[0]
+            attach(entry, meta, idx)
+
+    for entry in chrome_entries:
+        if entry.get('chrome_window_id'):
+            continue
+        for idx, meta in enumerate(metadata):
+            if idx not in used:
+                attach(entry, meta, idx)
+                break
+
+    for entry in chrome_entries:
+        entry.setdefault('chrome_window_id', '')
+        entry.setdefault('chrome_url', '')
+
+def same_frame(screen, frame):
+    return (
+        int(screen.get('x', 0)) == frame_value(frame, 'x')
+        and int(screen.get('y', 0)) == frame_value(frame, 'y')
+        and int(screen.get('w', 0)) == frame_value(frame, 'w')
+        and int(screen.get('h', 0)) == frame_value(frame, 'h')
+    )
+
+def match_display(yabai_display):
+    if not yabai_display:
+        return None
+    frame = yabai_display.get('frame', {})
+    exact = [d for d in display_map if same_frame(d, frame)]
+    if len(exact) == 1:
+        return exact[0]
+
+    x = frame_value(frame, 'x')
+    y = frame_value(frame, 'y')
+    w = frame_value(frame, 'w')
+    h = frame_value(frame, 'h')
+    partial = [
+        d for d in display_map
+        if int(d.get('x', 0)) == x and int(d.get('y', 0)) == y
+        and int(d.get('w', 0)) == w and int(d.get('h', 0)) == h
+    ]
+    if len(partial) == 1:
+        return partial[0]
+
+    by_x = [d for d in display_map if int(d.get('x', 0)) == x]
+    if len(by_x) == 1:
+        return by_x[0]
+
+    sorted_yabai = sorted(
+        displays,
+        key=lambda yd: (
+            frame_value(yd.get('frame', {}), 'x'),
+            frame_value(yd.get('frame', {}), 'y'),
+            frame_value(yd.get('frame', {}), 'w'),
+            frame_value(yd.get('frame', {}), 'h'),
+        ),
+    )
+    for slot, yd in enumerate(sorted_yabai):
+        if yd.get('index') == yabai_display.get('index') and slot < len(display_map):
+            return display_map[slot]
+    return None
+
+display_by_key = {}
+display_by_yabai_index = {}
+for yabai_display in displays:
+    matched = match_display(yabai_display)
+    if not matched:
+        continue
+    enriched = dict(matched)
+    enriched['display_key'] = display_key(enriched)
+    enriched['yabai_index'] = yabai_display.get('index')
+    enriched['yabai_frame'] = yabai_display.get('frame', {})
+    display_by_yabai_index[yabai_display.get('index')] = enriched
+    for key in display_keys(enriched):
+        display_by_key.setdefault(key, enriched)
+
+# Current windows
+current = []
+for w in json.loads(os.environ['WINDOWS_JSON']):
+    app = w.get('app', '')
+    if not app:
+        continue
+    display = display_by_yabai_index.get(w.get('display'))
+    current.append({
+        'app': app,
+        'title': w.get('title', ''),
+        'yabai_window_id': w.get('id'),
+        'window_frame': w.get('frame', {}),
+        'display': display.get('name', 'unknown') if display else 'unknown',
+        'display_key': display_key(display) if display else 'unknown',
+        'display_keys': display_keys(display),
+        'display_frame': display.get('yabai_frame', {}) if display else {},
+        'yabai_display': display.get('yabai_index') if display else None,
+        'fullscreen': w.get('is-native-fullscreen', False),
+    })
+attach_chrome_urls(current)
+
+# Saved layout
+saved = json.load(open(os.environ['LAYOUT_FILE']))
+
+def resolve_target(saved_entry):
+    for key in saved_display_keys(saved_entry):
+        if key in display_by_key:
+            return display_by_key[key], key
+    return None, ''
+
+def target_matches_current(target_key, current_entry):
+    return target_key in current_entry.get('display_keys', [])
+
+def move_record(phase, saved_entry, current_entry, target_display, target_key, matched_by):
+    return {
+        'phase': phase,
+        'matched_by': matched_by,
+        'app': current_entry['app'],
+        'title': current_entry['title'],
+        'source_display': current_entry['display'],
+        'source_display_key': current_entry['display_key'],
+        'source_yabai_display': current_entry.get('yabai_display'),
+        'yabai_window_id': current_entry.get('yabai_window_id'),
+        'chrome_window_id': current_entry.get('chrome_window_id', ''),
+        'chrome_url': current_entry.get('chrome_url', ''),
+        'target_display': target_display.get('name', saved_entry.get('display', 'unknown')),
+        'target_display_key': target_key,
+        'target_yabai_display': target_display.get('yabai_index'),
+        'target_frame': target_display.get('yabai_frame') or {
+            'x': target_display.get('x', 0),
+            'y': target_display.get('y', 0),
+            'w': target_display.get('w', 2560),
+            'h': target_display.get('h', 1440),
+        },
+        'fullscreen': saved_entry.get('fullscreen', current_entry.get('fullscreen', False)),
+    }
+
+log(f"RESTORE: current_windows={json.dumps(current, ensure_ascii=False)}")
+log(f"RESTORE: saved_windows={json.dumps(saved, ensure_ascii=False)}")
+
+# Phase 1: Match by exact app + title
+used_saved = set()
+used_current = set()
+moves = []
+
+# Phase 0: Match Chrome by same-session AppleScript window id when available.
+# This is stable while the Chrome process keeps the same window objects, even if
+# the active tab changes.
+for si, s in enumerate(saved):
+    if s.get('app') != 'Google Chrome' or not s.get('chrome_window_id'):
+        continue
+    target_display, target_key = resolve_target(s)
+    if not target_display:
+        log(f"RESTORE: phase0_id_unresolved_target saved_index={si} app={s.get('app')} display={s.get('display')}")
+        continue
+    candidates = [
+        (ci, c) for ci, c in enumerate(current)
+        if ci not in used_current
+        and c.get('app') == 'Google Chrome'
+        and c.get('chrome_window_id')
+        and c.get('chrome_window_id') == s.get('chrome_window_id')
+    ]
+    if not candidates:
+        log(f"RESTORE: phase0_id_no_match saved_index={si} chrome_window_id={s.get('chrome_window_id')}")
+        continue
+    candidates.sort(key=lambda item: 0 if target_matches_current(target_key, item[1]) else 1)
+    ci, c = candidates[0]
+    if not target_matches_current(target_key, c):
+        moves.append(move_record('phase0_id', s, c, target_display, target_key, 'chrome_window_id'))
+        log(f"RESTORE: move phase0_id app={c['app']} title={c['title']} chrome_window_id={c.get('chrome_window_id')} from={c['display']} to={target_display.get('name')} key={target_key}")
+    else:
+        log(f"RESTORE: keep phase0_id app={c['app']} title={c['title']} chrome_window_id={c.get('chrome_window_id')} display={c['display']} key={target_key}")
+    used_saved.add(si)
+    used_current.add(ci)
+
+# Phase 0b: Match Chrome by active-tab URL when the layout has it. Chrome titles
+# are often blank, truncated, or tab-dependent; URL is a cross-session fallback.
+for si, s in enumerate(saved):
+    if si in used_saved:
+        continue
+    if s.get('app') != 'Google Chrome' or not s.get('chrome_url'):
+        continue
+    target_display, target_key = resolve_target(s)
+    if not target_display:
+        log(f"RESTORE: phase0_url_unresolved_target saved_index={si} app={s.get('app')} display={s.get('display')}")
+        continue
+    candidates = [
+        (ci, c) for ci, c in enumerate(current)
+        if ci not in used_current
+        and c.get('app') == 'Google Chrome'
+        and c.get('chrome_url')
+        and c.get('chrome_url') == s.get('chrome_url')
+    ]
+    if not candidates:
+        continue
+    candidates.sort(key=lambda item: 0 if target_matches_current(target_key, item[1]) else 1)
+    ci, c = candidates[0]
+    if not target_matches_current(target_key, c):
+        moves.append(move_record('phase0_url', s, c, target_display, target_key, 'chrome_active_tab_url'))
+        log(f"RESTORE: move phase0_url app={c['app']} title={c['title']} url={c.get('chrome_url')} from={c['display']} to={target_display.get('name')} key={target_key}")
+    else:
+        log(f"RESTORE: keep phase0_url app={c['app']} title={c['title']} url={c.get('chrome_url')} display={c['display']} key={target_key}")
+    used_saved.add(si)
+    used_current.add(ci)
+
+for si, s in enumerate(saved):
+    if si in used_saved:
+        continue
+    if is_unstable_title(s.get('app'), s.get('title')):
+        log(f"RESTORE: skip phase1 unstable_title saved_index={si} app={s.get('app')} title={s.get('title')}")
+        continue
+    target_display, target_key = resolve_target(s)
+    if not target_display:
+        log(f"RESTORE: phase1_unresolved_target saved_index={si} app={s.get('app')} display={s.get('display')}")
+        continue
+    candidates = [
+        (ci, c) for ci, c in enumerate(current)
+        if ci not in used_current and c['app'] == s.get('app') and c['title'] == s.get('title')
+    ]
+    if not candidates:
+        continue
+    candidates.sort(key=lambda item: 0 if target_matches_current(target_key, item[1]) else 1)
+    ci, c = candidates[0]
+    if not target_matches_current(target_key, c):
+        moves.append(move_record('phase1', s, c, target_display, target_key, 'exact_app_title'))
+        log(f"RESTORE: move phase1 app={c['app']} title={c['title']} from={c['display']} to={target_display.get('name')} key={target_key}")
+    else:
+        log(f"RESTORE: keep phase1 app={c['app']} title={c['title']} display={c['display']} key={target_key}")
+    used_saved.add(si)
+    used_current.add(ci)
+
+# Phase 2: For unmatched saved entries, compute how many windows per
+# (app, fullscreen, display) we expect, then move unmatched current
+# windows to fill the gaps.
+# Count how many windows of each (app, fs) should be on each display
+target_counts = Counter()
+target_displays = {}
+target_saved_entries = {}
+for si, s in enumerate(saved):
+    if si in used_saved:
+        continue
+    if s.get('app') == 'Google Chrome' and is_unstable_title(s.get('app'), s.get('title')) and not s.get('chrome_url'):
+        log(f"RESTORE: skip phase2 ambiguous_chrome_saved saved_index={si} title={s.get('title')}")
+        continue
+    target_display, target_key = resolve_target(s)
+    if not target_display:
+        log(f"RESTORE: phase2_unresolved_target saved_index={si} app={s.get('app')} display={s.get('display')}")
+        continue
+    key = (s['app'], s['fullscreen'])
+    target_counts[(key, target_key)] += 1
+    target_displays[target_key] = target_display
+    target_saved_entries.setdefault((key, target_key), s)
+
+# Count how many unmatched current windows of each (app, fs) are on each display
+unmatched_current = []
+for ci, c in enumerate(current):
+    if ci in used_current:
+        continue
+    key = (c['app'], c['fullscreen'])
+    unmatched_current.append((ci, c, key))
+
+# First let already-correct unmatched windows claim needed slots. Without this,
+# title-changed Chrome windows that are already on the right display can leave a
+# false deficit that causes another Chrome window to be moved there.
+claimed_current = set()
+for ci, c, key in unmatched_current:
+    for target_key in c.get('display_keys', []):
+        count_key = (key, target_key)
+        if target_counts.get(count_key, 0) > 0:
+            target_counts[count_key] -= 1
+            claimed_current.add(ci)
+            log(f"RESTORE: keep phase2 app={c['app']} title={c['title']} display={c['display']} key={target_key}")
+            break
+
+# Move only the still-unclaimed unmatched current windows to remaining deficits.
+for (ci, c, key) in unmatched_current:
+    if ci in claimed_current:
+        continue
+    if c.get('app') == 'Google Chrome' and is_unstable_title(c.get('app'), c.get('title')) and not c.get('chrome_url'):
+        log(f"RESTORE: skip phase2 ambiguous_chrome_current app={c['app']} title={c['title']} display={c['display']}")
+        continue
+    for (tkey, target_key), needed in list(target_counts.items()):
+        if tkey != key or needed <= 0:
+            continue
+        if target_key in c.get('display_keys', []):
+            target_counts[(tkey, target_key)] -= 1
+            claimed_current.add(ci)
+            log(f"RESTORE: keep phase2_late app={c['app']} title={c['title']} display={c['display']} key={target_key}")
+            break
+        target_display = target_displays[target_key]
+        saved_entry = target_saved_entries[(tkey, target_key)]
+        moves.append(move_record('phase2', saved_entry, c, target_display, target_key, 'app_fullscreen_count'))
+        log(f"RESTORE: move phase2 app={c['app']} title={c['title']} from={c['display']} to={target_display.get('name')} key={target_key}")
+        target_counts[(tkey, target_key)] -= 1
+        claimed_current.add(ci)
+        break
+
+json.dump(moves, sys.stdout, ensure_ascii=False, indent=2)
+PY
+        rm -f "$moves_file"
+        return 1
+    fi
+    moves=$(cat "$moves_file")
+    rm -f "$moves_file"
+
+    local move_count
+    move_count=$(echo "$moves" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
+
+    if [[ "$move_count" -eq 0 ]]; then
+        echo "All windows are already on the correct displays."
+        touch "$layout_file"
+        cleanup_stale
+        return 0
+    fi
+
+    echo "Moving $move_count window(s)..."
+
+    # Execute moves one by one
+    MOVES_JSON="$moves" LOG_FILE="$LOG_FILE" python3 <<'PY'
+import json
+import os
+import subprocess
+import time
+from datetime import datetime
+
+moves = json.loads(os.environ['MOVES_JSON'])
+log_file = os.environ['LOG_FILE']
+
+def log(message):
+    with open(log_file, 'a') as f:
+        f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+
+def osa(script):
+    result = subprocess.run(['osascript', '-e', script], capture_output=True, text=True)
+    if result.returncode != 0:
+        log(f"RESTORE: osascript_error rc={result.returncode} stderr={result.stderr.strip()}")
+    return result
+
+# yabai has been observed to hang indefinitely on some commands (e.g. moving a
+# window onto a space that is itself in native fullscreen). Every yabai call
+# below is timeout-bounded so a stuck yabai process can never hang the whole
+# restore; a timeout is logged and treated as failure rather than retried.
+def yabai_cmd(args, timeout=5):
+    try:
+        result = subprocess.run(['yabai', '-m'] + args, capture_output=True, text=True, timeout=timeout)
+        return result.returncode, (result.stdout or '').strip(), (result.stderr or '').strip()
+    except subprocess.TimeoutExpired:
+        return -1, '', 'timeout'
+
+def yabai_window_state(win_id, timeout=3):
+    rc, out, _ = yabai_cmd(['query', '--windows', '--window', str(win_id)], timeout=timeout)
+    if rc != 0 or not out:
+        return None
+    try:
+        return json.loads(out)
+    except Exception:
+        return None
+
+def yabai_spaces(timeout=3):
+    rc, out, _ = yabai_cmd(['query', '--spaces'], timeout=timeout)
+    if rc != 0 or not out:
+        return None
+    try:
+        return json.loads(out)
+    except Exception:
+        return None
+
+def poll_until(check_fn, tries=6, interval=1.0):
+    for _ in range(tries):
+        time.sleep(interval)
+        try:
+            if check_fn():
+                return True
+        except Exception:
+            pass
+    return False
+
+def escape_as(s):
+    return s.replace('\\', '\\\\').replace('"', '\\"')
+
+def int_frame(frame, key, default=0):
+    try:
+        return int(round(float(frame.get(key, default))))
+    except Exception:
+        return default
+
+def target_bounds(move):
+    frame = move.get('target_frame') or {}
+    x = int_frame(frame, 'x')
+    y = int_frame(frame, 'y')
+    w = max(800, int_frame(frame, 'w', 2560))
+    h = max(600, int_frame(frame, 'h', 1440))
+    width = min(1400, max(700, w - 120))
+    height = min(900, max(500, h - 160))
+    left = x + max(40, (w - width) // 2)
+    top = y + max(60, min(120, (h - height) // 2))
+    return left, top, left + width, top + height
+
+def window_title_matches(window_title, title):
+    return window_title == title or window_title.startswith(title) or title.startswith(window_title)
+
+def verify_move(app, title, target_yabai_display, target_frame):
+    try:
+        verify = subprocess.run(
+            ['yabai', '-m', 'query', '--windows'],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except subprocess.TimeoutExpired:
+        log("RESTORE: verify_yabai_timeout")
+        return False
+    if verify.returncode != 0:
+        log(f"RESTORE: verify_yabai_error rc={verify.returncode} stderr={verify.stderr.strip()}")
+        return False
+    try:
+        windows = json.loads(verify.stdout)
+    except json.JSONDecodeError as exc:
+        log(f"RESTORE: verify_json_error error={exc}")
+        return False
+    for w in windows:
+        if w.get('app') != app:
+            continue
+        wt = w.get('title', '')
+        if not window_title_matches(wt, title):
+            continue
+        if target_yabai_display is not None and w.get('display') == target_yabai_display:
+            return True
+        frame = w.get('frame', {})
+        wx = int_frame(frame, 'x')
+        wy = int_frame(frame, 'y')
+        tx = int_frame(target_frame, 'x')
+        ty = int_frame(target_frame, 'y')
+        tw = int_frame(target_frame, 'w', 2560)
+        th = int_frame(target_frame, 'h', 1440)
+        if tx <= wx < tx + tw and ty <= wy < ty + th:
+            return True
+    return False
+
+for m in moves:
+    app = m['app']
+    title = m['title']
+    source = m.get('source_display', 'unknown')
+    target = m['target_display']
+    target_key = m.get('target_display_key', '')
+    target_yabai_display = m.get('target_yabai_display')
+    target_frame = m.get('target_frame') or {}
+    should_fs = m['fullscreen']
+    phase = m.get('phase', 'unknown')
+    bounds = target_bounds(m)
+    raw_chrome_id = m.get('chrome_window_id', '') if app == 'Google Chrome' else ''
+    use_chrome_id = bool(raw_chrome_id) and str(raw_chrome_id).isdigit()
+
+    print(f"  Moving '{app}' ({title[:40]}...) from {source} to {target}")
+    log(f"RESTORE: execute phase={phase} app={app} title={title} from={source} to={target} target_key={target_key} target_yabai_display={target_yabai_display} bounds={bounds} chrome_window_id={raw_chrome_id}")
+
+    as_app = escape_as(app)
+    as_title = escape_as(title)
+
+    if use_chrome_id:
+        # Chrome windows with a known stable id are addressed by id rather than
+        # title: blank/duplicate titles make `window "{title}"` ambiguous or
+        # outright invalid (`window ""` is not a valid System Events lookup).
+        # Raising the window by id first makes it "window 1" (frontmost) for
+        # both Chrome's own dictionary and System Events for the rest of the steps.
+        raise_result = osa(f'''
+tell application "{as_app}"
+    activate
+    try
+        set targetWindow to (first window whose id is {raw_chrome_id})
+        set index of targetWindow to 1
+        return "ok"
+    on error errMsg
+        return "fail:" & errMsg
+    end try
+end tell
+''')
+        log(f"RESTORE: raise_by_id_result app={app} chrome_window_id={raw_chrome_id} stdout={raise_result.stdout.strip()}")
+        time.sleep(0.5)
+        se_window_ref = 'window 1'
+    else:
+        # Step 1: Activate app and switch to window via Window menu (title-based)
+        osa(f'''
+tell application "{as_app}" to activate
+delay 0.3
+tell application "System Events"
+    tell process "{as_app}"
+        try
+            set menuItems to every menu item of menu "Window" of menu bar 1
+            repeat with mi in menuItems
+                if name of mi starts with "{as_title}" or "{as_title}" starts with name of mi then
+                    click mi
+                    exit repeat
+                end if
+            end repeat
+        end try
+    end tell
+end tell
+''')
+        time.sleep(1)
+        se_window_ref = f'window "{as_title}"'
+
+    # Step 2: Exit fullscreen
+    exit_fs_result = osa(f'''
+tell application "System Events"
+    tell process "{as_app}"
+        try
+            set targetWin to {se_window_ref}
+            set fs to value of attribute "AXFullScreen" of targetWin
+            if fs then
+                set value of attribute "AXFullScreen" of targetWin to false
+                return "exited"
+            else
+                return "not_fullscreen"
+            end if
+        on error errMsg
+            return "fail:" & errMsg
+        end try
+    end tell
+end tell
+''')
+    log(f"RESTORE: exit_fullscreen_result app={app} title={title} stdout={exit_fs_result.stdout.strip()}")
+    time.sleep(2)
+
+    # Step 3: Move to target display using bounds derived from target frame.
+    left, top, right, bottom = bounds
+    if use_chrome_id:
+        bounds_script = f'''
+try
+    tell application "{as_app}"
+        set targetWindow to (first window whose id is {raw_chrome_id})
+        set bounds of targetWindow to {{{left}, {top}, {right}, {bottom}}}
+        return "ok"
+    end tell
+on error errMsg
+    return "fail:" & errMsg
+end try
+'''
+    else:
+        bounds_script = f'''
+try
+    tell application "{as_app}"
+        repeat with w in every window
+            if title of w starts with "{as_title}" or "{as_title}" starts with title of w then
+                set bounds of w to {{{left}, {top}, {right}, {bottom}}}
+                return "ok"
+            end if
+        end repeat
+        return "fail:no matching window"
+    end tell
+on error errMsg
+    return "fail:" & errMsg
+end try
+'''
+    result = osa(bounds_script)
+    moved_via_bounds = 'ok' in (result.stdout or '')
+    log(f"RESTORE: bounds_result app={app} title={title} moved_via_bounds={moved_via_bounds} stdout={result.stdout.strip()}")
+
+    # Step 3b: Accessibility-API fallback (position/size) for apps whose own
+    # AppleScript dictionary doesn't support "every window"/"bounds of window"
+    # (e.g. GitHub Copilot). This talks to the window via System Events'
+    # AXPosition/AXSize attributes instead of the app's own scripting suite.
+    moved_via_ax = False
+    if not moved_via_bounds:
+        width = right - left
+        height = bottom - top
+        ax_result = osa(f'''
+tell application "System Events"
+    tell process "{as_app}"
+        try
+            set targetWin to {se_window_ref}
+            set position of targetWin to {{{left}, {top}}}
+            set size of targetWin to {{{width}, {height}}}
+            return "ok"
+        on error errMsg
+            return "fail:" & errMsg
+        end try
+    end tell
+end tell
+''')
+        moved_via_ax = 'ok' in (ax_result.stdout or '')
+        log(f"RESTORE: ax_result app={app} title={title} moved_via_ax={moved_via_ax} stdout={ax_result.stdout.strip()}")
+
+    if not moved_via_bounds and not moved_via_ax:
+        menu_result = osa(f'''
+tell application "System Events"
+    tell process "{as_app}"
+        try
+            set targetWin to {se_window_ref}
+            perform action "AXRaise" of targetWin
+            delay 0.3
+            click menu item "Move to {target}" of menu "Window" of menu bar 1
+            return "ok"
+        on error errMsg
+            return "fail:" & errMsg
+        end try
+    end tell
+end tell
+''')
+        log(f"RESTORE: menu_result app={app} title={title} target={target} stdout={menu_result.stdout.strip()}")
+    time.sleep(1)
+
+    # Step 3.5: Verify the move actually happened. If not, try menu fallback.
+    time.sleep(1)
+    actually_moved = verify_move(app, title, target_yabai_display, target_frame)
+    log(f"RESTORE: verify app={app} title={title} target={target} actually_moved={actually_moved}")
+
+    if not actually_moved:
+        print(f"    ! Move didn't stick, trying menu fallback")
+        if not moved_via_ax:
+            retry_ax_result = osa(f'''
+tell application "System Events"
+    tell process "{as_app}"
+        try
+            set targetWin to {se_window_ref}
+            perform action "AXRaise" of targetWin
+            delay 0.3
+            set position of targetWin to {{{left}, {top}}}
+            set size of targetWin to {{{right - left}, {bottom - top}}}
+            return "ok"
+        on error errMsg
+            return "fail:" & errMsg
+        end try
+    end tell
+end tell
+''')
+            log(f"RESTORE: retry_ax_result app={app} title={title} stdout={retry_ax_result.stdout.strip()}")
+        fallback_result = osa(f'''
+tell application "{as_app}" to activate
+delay 0.3
+tell application "System Events"
+    tell process "{as_app}"
+        try
+            set targetWin to {se_window_ref}
+            perform action "AXRaise" of targetWin
+            delay 0.3
+            click menu item "Move to {target}" of menu "Window" of menu bar 1
+            return "ok"
+        on error errMsg
+            return "fail:" & errMsg
+        end try
+    end tell
+end tell
+''')
+        log(f"RESTORE: fallback_menu_result app={app} title={title} target={target} stdout={fallback_result.stdout.strip()}")
+        time.sleep(2)
+        actually_moved = verify_move(app, title, target_yabai_display, target_frame)
+        log(f"RESTORE: fallback_verify app={app} title={title} target={target} actually_moved={actually_moved}")
+
+    # Step 3.9: yabai native-fullscreen fallback. AppleScript/System Events can only
+    # enumerate windows on the currently visible macOS Space, so every prior strategy
+    # silently fails for a fullscreen window sitting on a different Space -- Chrome's
+    # own "set bounds" can even report "ok" while the window never actually moves,
+    # because native-fullscreen windows are size-locked to their own Space. yabai
+    # operates below that restriction, so as a last resort for still-stuck fullscreen
+    # windows: exit native fullscreen via yabai, move the (now-normal) window to a
+    # non-fullscreen space on the target display, then re-enter fullscreen there.
+    # yabai has been observed to hang on some of these calls (e.g. moving a window
+    # onto a space that is itself fullscreen), so every call is timeout-bounded and
+    # polled rather than blindly chained.
+    yabai_fallback_handled_fs = False
+    if not actually_moved:
+        yabai_window_id = m.get('yabai_window_id')
+        if yabai_window_id and target_yabai_display and should_fs:
+            log(f"RESTORE: yabai_fallback_start app={app} title={title} yabai_window_id={yabai_window_id} target_yabai_display={target_yabai_display}")
+            rc, out, err = yabai_cmd(['window', str(yabai_window_id), '--toggle', 'native-fullscreen'])
+            log(f"RESTORE: yabai_fs_off_cmd rc={rc} stdout={out} stderr={err}")
+            fs_off_ok = poll_until(lambda: (yabai_window_state(yabai_window_id) or {}).get('is-native-fullscreen') is False)
+            log(f"RESTORE: yabai_fs_off_result ok={fs_off_ok}")
+
+            move_ok = False
+            if fs_off_ok:
+                spaces = yabai_spaces() or []
+                candidate_spaces = [s['index'] for s in spaces
+                                     if s.get('display') == target_yabai_display and not s.get('is-native-fullscreen')]
+                if candidate_spaces:
+                    target_space = candidate_spaces[0]
+                    rc, out, err = yabai_cmd(['window', str(yabai_window_id), '--space', str(target_space)])
+                    log(f"RESTORE: yabai_move_cmd rc={rc} stdout={out} stderr={err} target_space={target_space}")
+                    move_ok = poll_until(lambda: (yabai_window_state(yabai_window_id) or {}).get('display') == target_yabai_display)
+                    log(f"RESTORE: yabai_move_result ok={move_ok}")
+                else:
+                    log(f"RESTORE: yabai_fallback_abort reason=no_normal_space_on_target_display target_yabai_display={target_yabai_display}")
+
+                if move_ok:
+                    rc, out, err = yabai_cmd(['window', str(yabai_window_id), '--toggle', 'native-fullscreen'])
+                    log(f"RESTORE: yabai_fs_on_cmd rc={rc} stdout={out} stderr={err}")
+                    fs_on_ok = poll_until(lambda: (yabai_window_state(yabai_window_id) or {}).get('is-native-fullscreen') is True)
+                    log(f"RESTORE: yabai_fs_on_result ok={fs_on_ok}")
+                    yabai_fallback_handled_fs = True
+                else:
+                    # Leave the window in its pre-fallback fullscreen state rather than
+                    # stranding it as a normal window on the wrong display.
+                    yabai_cmd(['window', str(yabai_window_id), '--toggle', 'native-fullscreen'])
+            else:
+                log(f"RESTORE: yabai_fallback_abort reason=fullscreen_exit_failed_or_timed_out")
+
+            actually_moved = verify_move(app, title, target_yabai_display, target_frame)
+            log(f"RESTORE: yabai_fallback_verify app={app} title={title} target={target} actually_moved={actually_moved}")
+        elif not yabai_window_id:
+            log(f"RESTORE: yabai_fallback_skipped reason=no_yabai_window_id")
+
+    # Step 4: Re-enter fullscreen
+    if should_fs and not yabai_fallback_handled_fs:
+        reenter_fs_result = osa(f'''
+tell application "System Events"
+    tell process "{as_app}"
+        try
+            set targetWin to {se_window_ref}
+            set value of attribute "AXFullScreen" of targetWin to true
+            return "ok"
+        on error errMsg
+            return "fail:" & errMsg
+        end try
+    end tell
+end tell
+''')
+        log(f"RESTORE: reenter_fullscreen_result app={app} title={title} stdout={reenter_fs_result.stdout.strip()}")
+        time.sleep(1.5)
+
+print('Done.')
+PY
+
+    touch "$layout_file"
+    cleanup_stale
+}
+
+list_layouts() {
+    [[ -d "$LAYOUT_DIR" ]] || { echo "No layouts saved yet."; return; }
+    local current_id
+    current_id=$(get_config_id)
+    for f in "$LAYOUT_DIR"/*; do
+        [[ -f "$f" ]] || continue
+        [[ "$f" == *.bak ]] && continue
+        [[ "$f" == */debug.log ]] && continue
+        local id
+        id=$(basename "$f")
+        local count
+        count=$(python3 -c "import json; print(len(json.load(open('$f'))))" 2>/dev/null || echo "invalid")
+        local displays
+        displays=$(python3 -c "
+import json
+entries = json.load(open('$f'))
+displays = sorted(set(e['display'] for e in entries))
+print(', '.join(displays))
+" 2>/dev/null || echo "invalid layout")
+        local marker=""
+        [[ "$id" == "$current_id" ]] && marker=" (current)"
+        echo "  $id  ${count} windows  [$displays]${marker}"
+    done
+}
+
+restore_backup() {
+    local config_id
+    config_id=$(get_config_id)
+    local backup_file="$LAYOUT_DIR/${config_id}.bak"
+
+    if [[ ! -f "$backup_file" ]]; then
+        echo "No backup found for current display config ($config_id)"
+        return 1
+    fi
+
+    cp "$backup_file" "$LAYOUT_DIR/$config_id"
+    echo "Restored backup for config $config_id"
+    restore_layout
+}
+
+usage() {
+    echo "Usage: window-layout <save|restore|restore-backup|list>"
+    echo ""
+    echo "  save              Save current window positions for this display configuration"
+    echo "  restore [config]  Restore window positions (optionally from a specific config ID)"
+    echo "  restore-backup    Revert to the previous save and restore it"
+    echo "  list              List all saved layouts"
+}
+
+case "${1:-}" in
+    save)            save_layout ;;
+    restore)         shift; restore_layout "${1:-}" ;;
+    restore-backup)  restore_backup ;;
+    list)            list_layouts ;;
+    *)               usage; exit 1 ;;
+esac

@@ -8,7 +8,8 @@
 - vim: ~
 - tmux: ~
 - zsh: ~
+- direnv: ~
+- atuin: ~
 - osx: ~
 - submodules: ~
-- claude: ~
 - copilot: ~

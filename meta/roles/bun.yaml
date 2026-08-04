@@ -1,0 +1,16 @@
+- tap:
+    - oven-sh/bun
+
+- brew:
+    - oven-sh/bun/bun
+
+- apt:
+    - curl
+    - unzip
+
+- shell:
+  -
+    command: helpers/bun_setup.sh
+    stdout: true
+    stdin: true
+    stderr: true

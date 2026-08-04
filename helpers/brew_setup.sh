@@ -44,33 +44,44 @@ while true; do
 done
 
 # Upgrade any already-installed formulae.
-UPDATES=$(brew upgrade --dry-run)
-if [[ -n $UPDATES ]]; then
-  while true; do
-      echo "Running brew upgrade for the following formulae:"
-      echo "${UPDATES}"
-      read -r -p "Do you wish to continue [y/N]?" yn
-      case $yn in
-          [Yy]* ) brew upgrade; break;;
-          [Nn]* ) break;;
-          '' ) break;;
-          * ) exit;;
-      esac
-  done
-fi
+# HOMEBREW_NO_AUTO_UPDATE prevents brew from silently auto-updating during the dry-run check.
+while true; do
+    read -r -p "Do you want to check for and upgrade packages? [y/N]?" yn
+    case $yn in
+        [Yy]* )
+            UPDATES=$(HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade --dry-run)
+            if [[ -n $UPDATES ]]; then
+                echo "Running brew upgrade for the following formulae:"
+                echo "${UPDATES}"
+                read -r -p "Do you wish to continue [y/N]?" yn2
+                case $yn2 in
+                    [Yy]* ) brew upgrade;;
+                esac
+            else
+                echo "No packages to upgrade."
+            fi
+            break;;
+        * ) break;;
+    esac
+done
 
 # Remove outdated formulae
-UPDATES=$(brew cleanup -n)
-if [[ -n $UPDATES ]]; then
-  while true; do
-      echo "Running brew cleanup for the following formulae:"
-      echo "${UPDATES}"
-      read -r -p "Do you wish to continue [y/N]?" yn
-      case $yn in
-          [Yy]* ) brew cleanup; break;;
-          [Nn]* ) break;;
-          '' ) break;;
-          * ) exit;;
-      esac
-  done
-fi
+while true; do
+    read -r -p "Do you want to clean up outdated formulae? [y/N]?" yn
+    case $yn in
+        [Yy]* )
+            UPDATES=$(HOMEBREW_NO_AUTO_UPDATE=1 brew cleanup -n)
+            if [[ -n $UPDATES ]]; then
+                echo "Running brew cleanup for the following formulae:"
+                echo "${UPDATES}"
+                read -r -p "Do you wish to continue [y/N]?" yn2
+                case $yn2 in
+                    [Yy]* ) brew cleanup;;
+                esac
+            else
+                echo "Nothing to clean up."
+            fi
+            break;;
+        * ) break;;
+    esac
+done

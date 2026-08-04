@@ -1,0 +1,5 @@
+- brew:
+    - direnv
+
+- apt:
+    - direnv

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
-set -o errexit
 # ~/.osx — https://mths.be/osx
 #
 # macOS-version sensitivity:
 # Many of the `defaults write`, `pmset`, `nvram`, and `systemsetup` calls
 # below were authored against pre-Catalina macOS and may be silently ignored
-# (or refused outright) on newer releases. Known categories of risk:
+# (or refused outright) on newer releases. Individual failures are non-fatal
+# by design — this script is best-effort. Known categories of risk:
 #   - `LSQuarantine` and other launch-services keys can require Full Disk
 #     Access / SIP exceptions on macOS 11+.
 #   - `pmset -a standbydelay` was replaced by `standbydelaylow`/
@@ -128,7 +128,8 @@ defaults write com.apple.helpviewer DevMode -bool true
 sudo defaults write /Library/Preferences/com.apple.loginwindow AdminHostInfo HostName
 
 # Restart automatically if the computer freezes
-sudo systemsetup -setrestartfreeze off
+# Note: systemsetup -setrestartfreeze is blocked on macOS 13+ by MDM/security policies (Error -99).
+sudo systemsetup -setrestartfreeze off || true
 
 # Never go into computer sleep mode
 #sudo systemsetup -setcomputersleep Off > /dev/null
@@ -822,3 +823,4 @@ defaults write com.google.Chrome.canary PMPrintingExpandedStateForPrint2 -bool t
 #defaults write ~/Library/Preferences/org.gpgtools.gpgmail SignNewEmailsByDefault -bool false
 
 echo "Done. Note that some of these changes require a logout/restart to take effect."
+exit 0

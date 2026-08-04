@@ -1,0 +1,8 @@
+# Keep this list limited to approved or verified VS Code-compatible extensions.
+charliermarsh.ruff
+ms-python.debugpy
+ms-python.python
+redhat.java
+redhat.vscode-yaml
+scala-lang.scala
+scalameta.metals
