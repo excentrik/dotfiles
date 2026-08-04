@@ -314,6 +314,32 @@ check_zsh_syntax() {
     home_files/.zsh_prompt
 }
 
+check_zsh_noninteractive_path() {
+  status "Checking non-interactive zsh PATH"
+  if ! command -v zsh >/dev/null 2>&1; then
+    echo "zsh not found; skipping non-interactive PATH check"
+    return 0
+  fi
+
+  local tmp_home
+  local resolved
+  tmp_home="$(mktemp -d)"
+  mkdir -p "${tmp_home}/bin"
+  ln -s "${BASE_DIR}/home_files/.zshenv" "${tmp_home}/.zshenv"
+  ln -s "${BASE_DIR}/home_files/.path" "${tmp_home}/.path"
+  printf '#!/usr/bin/env sh\n' > "${tmp_home}/bin/path-probe"
+  chmod +x "${tmp_home}/bin/path-probe"
+
+  resolved="$(HOME="${tmp_home}" ZDOTDIR="${tmp_home}" PATH="/usr/bin:/bin" zsh -c 'command -v path-probe')"
+  if [ "${resolved}" != "${tmp_home}/bin/path-probe" ]; then
+    echo "Expected non-interactive zsh to resolve ~/bin tools; resolved: ${resolved}" >&2
+    rm -rf "${tmp_home}"
+    return 1
+  fi
+
+  rm -rf "${tmp_home}"
+}
+
 check_link_targets() {
   status "Checking Dotbot link targets"
   local configs=("$@")
@@ -729,6 +755,7 @@ main() {
   check_python_syntax
   check_apt_messages
   check_zsh_syntax
+  check_zsh_noninteractive_path
   check_role_dependencies
   check_role_dependency_failures
   check_copilot_settings_enable_experimental

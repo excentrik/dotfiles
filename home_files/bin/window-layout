@@ -10,6 +10,7 @@ LAYOUT_DIR="$HOME/.window-layouts"
 LOG_FILE="$HOME/.window-layouts/debug.log"
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/window-layout"
 SCHEDULE_PID_FILE="$RUNTIME_DIR/restore.pid"
+RESTORE_DELAY="${WINDOW_LAYOUT_RESTORE_DELAY:-30}"
 STALE_DAYS=30
 
 secure_layout_storage() {
@@ -419,13 +420,13 @@ def attach_chrome_urls(entries):
 
     for entry in chrome_entries:
         title = entry.get('title', '')
-        for idx, meta in enumerate(metadata):
-            if idx in used:
-                continue
-            if titles_match(title, meta.get('title', '')):
-                attach(entry, meta, idx)
-                used.add(idx)
-                break
+        matches = [
+            (idx, meta) for idx, meta in enumerate(metadata)
+            if idx not in used and titles_match(title, meta.get('title', ''))
+        ]
+        if len(matches) == 1:
+            idx, meta = matches[0]
+            attach(entry, meta, idx)
 
     for entry in chrome_entries:
         if entry.get('chrome_window_id'):
@@ -438,14 +439,6 @@ def attach_chrome_urls(entries):
         if len(matches) == 1:
             idx, meta = matches[0]
             attach(entry, meta, idx)
-
-    for entry in chrome_entries:
-        if entry.get('chrome_window_id'):
-            continue
-        for idx, meta in enumerate(metadata):
-            if idx not in used:
-                attach(entry, meta, idx)
-                break
 
     for entry in chrome_entries:
         entry.setdefault('chrome_window_id', '')
@@ -541,7 +534,12 @@ restore_layout() {
     if [[ -n "${1:-}" ]]; then
         # Use provided config ID (or prefix match)
         local match
-        match=$(find "$LAYOUT_DIR" -type f -name "${1}*" 2>/dev/null | head -1)
+        if [[ -f "$LAYOUT_DIR/$1" ]]; then
+            match="$LAYOUT_DIR/$1"
+        else
+            match=$(find "$LAYOUT_DIR" -maxdepth 1 -type f -name "${1}*" \
+                ! -name '*.bak' ! -name 'debug.log' -print 2>/dev/null | sort | head -1)
+        fi
         if [[ -z "$match" ]]; then
             echo "No layout found matching '$1'"
             echo "Available configs:"
@@ -754,13 +752,13 @@ def attach_chrome_urls(entries):
 
     for entry in chrome_entries:
         title = entry.get('title', '')
-        for idx, meta in enumerate(metadata):
-            if idx in used:
-                continue
-            if titles_match(title, meta.get('title', '')):
-                attach(entry, meta, idx)
-                used.add(idx)
-                break
+        matches = [
+            (idx, meta) for idx, meta in enumerate(metadata)
+            if idx not in used and titles_match(title, meta.get('title', ''))
+        ]
+        if len(matches) == 1:
+            idx, meta = matches[0]
+            attach(entry, meta, idx)
 
     for entry in chrome_entries:
         if entry.get('chrome_window_id'):
@@ -773,14 +771,6 @@ def attach_chrome_urls(entries):
         if len(matches) == 1:
             idx, meta = matches[0]
             attach(entry, meta, idx)
-
-    for entry in chrome_entries:
-        if entry.get('chrome_window_id'):
-            continue
-        for idx, meta in enumerate(metadata):
-            if idx not in used:
-                attach(entry, meta, idx)
-                break
 
     for entry in chrome_entries:
         entry.setdefault('chrome_window_id', '')
@@ -1568,10 +1558,13 @@ schedule_restore() {
 
     rm -f "$SCHEDULE_PID_FILE"
     local token
+    local pid_file_tmp
     token="$(date +%s)-$$-${RANDOM}"
     "$0" _delayed-restore "$token" >> "$RUNTIME_DIR/yabai.out.log" 2>> "$RUNTIME_DIR/yabai.err.log" &
-    printf '%s %s\n' "$!" "$token" > "$SCHEDULE_PID_FILE"
-    chmod 600 "$SCHEDULE_PID_FILE" "$RUNTIME_DIR/yabai.out.log" "$RUNTIME_DIR/yabai.err.log" 2>/dev/null || true
+    pid_file_tmp="${SCHEDULE_PID_FILE}.$$"
+    printf '%s %s\n' "$!" "$token" > "$pid_file_tmp"
+    chmod 600 "$pid_file_tmp" "$RUNTIME_DIR/yabai.out.log" "$RUNTIME_DIR/yabai.err.log" 2>/dev/null || true
+    mv "$pid_file_tmp" "$SCHEDULE_PID_FILE"
 }
 
 run_delayed_restore() {
@@ -1583,15 +1576,21 @@ run_delayed_restore() {
 
     secure_runtime_storage
     cleanup_scheduled_restore() {
+        local expected_token="$1"
         local scheduled=""
         scheduled=$(cat "$SCHEDULE_PID_FILE" 2>/dev/null || true)
-        if [[ "$scheduled" == "$$ $token" ]]; then
+        if [[ "$scheduled" == "$$ $expected_token" ]]; then
             rm -f "$SCHEDULE_PID_FILE"
         fi
     }
-    trap cleanup_scheduled_restore EXIT
+    trap "cleanup_scheduled_restore '$token'" EXIT
 
-    sleep 30
+    sleep "$RESTORE_DELAY"
+    local scheduled=""
+    scheduled=$(cat "$SCHEDULE_PID_FILE" 2>/dev/null || true)
+    if [[ "$scheduled" != "$$ $token" ]]; then
+        return 0
+    fi
     restore_layout
 }
 
