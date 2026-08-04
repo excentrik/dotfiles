@@ -149,14 +149,18 @@ print(names.joined(separator: "|"))
         [[ "$f" == */debug.log ]] && continue
 
         local score
-        score=$(python3 -c "
+        score=$(CURRENT_NAMES="$current_names" LAYOUT_FILE="$f" python3 - <<'PY' 2>/dev/null
 import json
-current_names = set('$current_names'.split('|')) - {''}
-saved = json.load(open('$f'))
+import os
+
+current_names = set(os.environ['CURRENT_NAMES'].split('|')) - {''}
+with open(os.environ['LAYOUT_FILE'], encoding='utf-8') as layout:
+    saved = json.load(layout)
 saved_names = set(e['display'] for e in saved) - {'unknown'}
 overlap = len(current_names & saved_names)
 print(overlap)
-" 2>/dev/null || echo 0)
+PY
+) || score=0
 
         log_debug "MATCH: $f score=$score"
         if [[ "$score" -gt "$best_score" ]]; then
@@ -1234,6 +1238,7 @@ for m in moves:
 
     as_app = escape_as(app)
     as_title = escape_as(title)
+    as_target = escape_as(target)
 
     if use_chrome_id:
         # Chrome windows with a known stable id are addressed by id rather than
@@ -1367,7 +1372,7 @@ tell application "System Events"
             set targetWin to {se_window_ref}
             perform action "AXRaise" of targetWin
             delay 0.3
-            click menu item "Move to {target}" of menu "Window" of menu bar 1
+            click menu item "Move to {as_target}" of menu "Window" of menu bar 1
             return "ok"
         on error errMsg
             return "fail:" & errMsg
@@ -1412,7 +1417,7 @@ tell application "System Events"
             set targetWin to {se_window_ref}
             perform action "AXRaise" of targetWin
             delay 0.3
-            click menu item "Move to {target}" of menu "Window" of menu bar 1
+            click menu item "Move to {as_target}" of menu "Window" of menu bar 1
             return "ok"
         on error errMsg
             return "fail:" & errMsg
@@ -1464,7 +1469,7 @@ end tell
                     log(f"RESTORE: yabai_fs_on_cmd rc={rc} stdout={out} stderr={err}")
                     fs_on_ok = poll_until(lambda: (yabai_window_state(yabai_window_id) or {}).get('is-native-fullscreen') is True)
                     log(f"RESTORE: yabai_fs_on_result ok={fs_on_ok}")
-                    yabai_fallback_handled_fs = True
+                    yabai_fallback_handled_fs = fs_on_ok
                 else:
                     # Leave the window in its pre-fallback fullscreen state rather than
                     # stranding it as a normal window on the wrong display.
