@@ -12,12 +12,14 @@ This document describes how the repo is organized and how to extend it. For inst
 | **home_files/** | Source of truth for files linked into `~` (e.g. `.bashrc`, `.aliases/*.sh`, `.vimrc`) |
 | **helpers/** | Setup scripts run by Dotbot when roles are installed |
 | **system/** | OS-specific scripts (Homebrew list, OS X defaults) |
-| **dotbot**, **dotbot-brew** | Git submodules: Dotbot and its Homebrew plugin |
+| **dotbot**, **dotbot-brew**, **dotbot-apt/**, **dotbot-role-deps/** | Dotbot, the Homebrew plugin submodule, and local apt/role-dependency directive plugins |
 | **AGENTS.md** | Shared AI-assistant repository instructions |
 
 **Note:** `install.conf.yaml` at the repo root is **not** used by `./install`. The installer uses only `meta/base.yaml` and `meta/roles/*.yaml`. It is legacy/OSX-oriented and can be removed or kept for reference.
 
 Native Windows is out of scope for this repository. Windows users should run the existing `wsl` host profile inside WSL, which `./install` auto-detects from `/proc/version`.
+
+Azure Linux/CBL-Mariner VMs and other non-WSL Linux hosts should use the existing `unix` profile. Add a new host profile only when the host needs a different role set, not just because it uses a different Linux distribution.
 
 ## Adding a new host
 
@@ -30,10 +32,12 @@ Native Windows is out of scope for this repository. Windows users should run the
 1. Create `meta/roles/<name>.yaml` with Dotbot directives:
    - **link:** — map `~/.something` to paths under `home_files/`.
    - **shell:** — run a script under `helpers/` or one-off commands.
-   - (Optional) **brew** / **cask** / **tap** — only with the dotbot-brew plugin (see `meta/roles/brew.yaml`).
+   - (Optional) **depends** — role names that must run before this role.
+   - (Optional) **tap** / **brew** / **cask** — Homebrew packages for macOS hosts.
+   - (Optional) **apt** — Linux package dependencies for apt/dpkg or yum/rpm hosts; the directive name is historical.
 2. Add any new dotfile content under `home_files/` (or `home_files/.aliases/` for alias scripts).
 3. If the role needs setup logic, add a script in `helpers/` and invoke it from the role YAML via `shell:`.
-4. Add the role name to the appropriate host file(s) in `meta/hosts/`.
+4. Add the role name to the appropriate host file(s) in `meta/hosts/`, or add it to another role's `depends` directive if it should be installed automatically before that role.
 
 Do not add a Dotbot copy plugin without a concrete need. Repo-managed files should be linked from `home_files/`, while generated or machine-local files should be created by idempotent helpers.
 
@@ -41,13 +45,19 @@ Do not add a Dotbot copy plugin without a concrete need. Repo-managed files shou
 
 ### Root
 
-- **install** — Main entry: detects or uses host, updates submodules to recorded commits unless Dotbot dry-run is requested, runs Dotbot with `meta/base.yaml` then each role from `meta/hosts/<host>.yaml`. Optional extra roles: `./install wsl some_role`; Dotbot flags such as `--dry-run`, `--only`, and `--except` are passed through. Set `DOTFILES_UPDATE_SUBMODULES=1` to intentionally update submodules from upstream remotes. Use a temporary `HOME` when testing dry-runs from a worktree.
-- **install-role** — Run one or more roles only (e.g. `./install-role vim git`). Does not run base or full host. Dotbot flags can appear before or after role names.
+- **install** — Main entry: detects or uses host, updates submodules to recorded commits unless Dotbot dry-run is requested, runs Dotbot with `meta/base.yaml` then each role from `meta/hosts/<host>.yaml` after expanding role-local `depends` directives. Optional extra roles: `./install wsl some_role`; Dotbot flags such as `--dry-run`, `--only`, and `--except` are passed through. Set `DOTFILES_UPDATE_SUBMODULES=1` to intentionally update submodules from upstream remotes. Use a temporary `HOME` when testing dry-runs from a worktree.
+- **install-role** — Run one or more roles only (e.g. `./install-role vim git`), expanding role-local `depends` directives first. Does not run base or full host. Dotbot flags can appear before or after role names.
 - **generate_shortcuts_documentation.sh** — Regenerates the “Commands available” section in README.md from the alias/function comments in `home_files/.aliases/`. Use `./generate_shortcuts_documentation.sh --check` to detect README command-doc drift without modifying the file.
 - `DOTFILES_NO_INTERACTIVE=1` skips helpers that would prompt for input, including Homebrew maintenance and macOS system-defaults setup.
-- `--bootstrap` or `DOTFILES_BOOTSTRAP=1` lets Linux/WSL installs with `apt` install missing role package dependencies before each role runs. Without bootstrap, package dependencies are only reported.
+- `--bootstrap` or `DOTFILES_BOOTSTRAP=1` lets Linux/WSL installs install missing role-local `apt` packages through the host package manager.
 
 To update submodules without running install scripts, use `git submodule update --init --recursive` for recorded commits or add `--remote` to intentionally advance submodules from upstream branches.
+
+## Shell integrations
+
+Bash and zsh enable direnv with the shell-specific `direnv hook` when the `direnv` command is available. The `direnv` role installs that command for host profiles that include it, while the guarded hook keeps shells working on hosts where direnv is absent.
+
+zsh and Oh My Zsh enable [atuin](https://atuin.sh) shell history with `atuin init zsh --disable-up-arrow` when the `atuin` command is available; the guarded hook is placed last so atuin owns the Ctrl-R binding while the Up-arrow keeps native zsh history behaviour. The `atuin` role (currently in the `osx` host) installs atuin via Homebrew and links the managed `home_files/atuin/config.toml` to `~/.config/atuin/config.toml`. atuin is intentionally **not** wired into bash: its bash integration records history through `bash-preexec`/`ble.sh`, which this repo does not install.
 
 ## Alias files
 
@@ -70,17 +80,19 @@ To update submodules without running install scripts, use `git submodule update 
 
 | Script | Purpose |
 |--------|---------|
+| aliases_cleanup.sh | Removes broken symlinks under `~/.aliases` left by renamed/deleted alias files |
 | editor_setup.sh | Chooses vi/nano if EDITOR unset, writes to `~/.extra`; optional `/usr/local/bin/edit` for non-SSH |
+| bun_setup.sh | Installs Bun for the `bun` role: Homebrew on macOS, official user-local installer on Linux/WSL without modifying shell rc files |
 | git_setup.sh | Copies `~/.gitconfig` to `~/.gitconfig_local` if needed; adds GIT_SSH and (on OSX) credential helper |
 | python_setup.sh | Python environment setup (role: python) |
 | brew_setup.sh | Homebrew initialization (role: brew, OSX) |
 | xcode_cli_setup.sh | Xcode Command Line Tools setup only; does not install full Xcode (role: xcode_cli, OSX). Headless/CI macOS hosts must preinstall CLT (e.g. via MDM or `xcode-select --install` in a setup step) before running `./install`; the helper deliberately skips its interactive GUI prompt when stdin is not a TTY or `DOTFILES_NO_INTERACTIVE` is set. |
-| copilot_setup.sh | Installs GitHub Copilot CLI with npm when `copilot` is missing |
+| copilot_setup.sh | Ensures Node.js 24+ (installs user-local Node 24 when needed) and installs/updates GitHub Copilot CLI with npm |
 | ohmyzsh_setup.sh | Copies `~/.oh-my-zsh` from the checked-out Oh My Zsh submodule when safe (role: ohmyzsh) |
 | node_setup.sh | Node environment setup (if used by a role) |
 | osx_setup.sh | OS X–specific setup (if used by a role) |
 | validate.sh | Non-mutating validation checks for scripts, role links, and Dotbot dry-runs |
-| package_bootstrap.py | Reports or explicitly installs Linux/WSL apt package dependencies declared per role |
+| role_dependencies.sh | Shared role dependency expansion and graph validation used by `install`, `install-role`, and validation |
 
 ### system/
 
@@ -104,27 +116,62 @@ The `git` role force-links the managed `home_files/git/gitconfig` to `~/.gitconf
 
 `home_files/git/gitconfig` should contain shared defaults only. Machine-local identity, credential helpers, and other personal overrides belong in `~/.gitconfig_local`, which is included by the managed config and is not tracked by this repository. Repeat installs do not copy the managed `~/.gitconfig` symlink back into `~/.gitconfig_local`, which avoids duplicating the committed config in the local include.
 
+Before installing the `git` role on an existing machine, diff the current `~/.gitconfig` against `home_files/git/gitconfig` and move only machine-local additions into `~/.gitconfig_local`. Do not duplicate shared sections, includes, aliases, or filters in both files; keep each setting owned by either the managed config or the local include to avoid Git config failures and confusing overrides.
+
 This conditional `~/.gitconfig` preservation is intentionally implemented in `helpers/git_setup.sh`, not through a generic copy plugin, because it depends on the existing target state and must avoid copying the managed symlink on repeat installs.
 
-## Package bootstrap metadata
+## Claude configuration
 
-Linux/WSL package bootstrap metadata lives in `meta/packages/<role>.json`, where `<role>` must match a role config in `meta/roles/`. Metadata is intentionally JSON so `helpers/package_bootstrap.py` can parse it with Python's standard library and avoid adding a YAML parser dependency before packages are installed.
+The `claude` role copies shared Claude Code defaults from `home_files/.claude/settings.json` into `~/.claude/settings.json` only when the local file is missing or still points at the old repo-managed symlink. After installation the file is local and can be edited per host.
 
-Each metadata file may declare command dependencies:
+Do not commit Claude credentials, project/session history, generated skills, plugin caches, telemetry, paste cache, local settings, or other generated state from `~/.claude` or `~/.claude.json`.
 
-```json
-{
-  "description": "Vim role dependencies",
-  "commands": [
-    {
-      "name": "vim",
-      "apt": ["vim"]
-    }
-  ]
-}
+## Copilot configuration
+
+The `copilot` role copies shared GitHub Copilot CLI defaults from `home_files/.copilot/settings.json` into `~/.copilot/settings.json` only when the local file is missing or still points at the old repo-managed symlink. After installation the file is local and can be edited per host.
+
+`helpers/copilot_setup.sh` ensures a Node.js 24 runtime for Copilot. If the current `node` is older than 24 (or missing), it installs the latest `v24.x` Node build to `~/.local/node-v24`, symlinks `node`/`npm`/`npx`/`corepack` into `~/.local/bin`, and then installs/updates `@github/copilot`.
+
+The `copilot` role enables experimental mode by default with `"experimental": true` in `~/.copilot/settings.json`. `helpers/copilot_setup.sh` adds that setting to existing local settings only when the key is missing, so an explicit local `"experimental": false` is preserved. The `copilot` role also links `home_files/bin/copilot` into `~/bin/copilot`, which is earlier on PATH than `~/.local/bin`; that wrapper preserves `--no-experimental` for one command and maps `DOTFILES_COPILOT_EXPERIMENTAL=0` to `--no-experimental`.
+
+Only portable preferences and footer settings belong in the default Copilot file. Do not commit Copilot auth config, OAuth state, MCP config, command history, logs, session state, generated skills, plugin caches, installed plugin metadata, experiment assignment caches, local permissions, trusted folders, login/user state, or stores from `~/.copilot`.
+
+## Role dependencies
+
+Use a role-local `depends` directive to list role names that must run before the current role:
+
+```yaml
+- depends:
+    - runtime
 ```
 
-Normal installs report missing commands and apt package hints without installing anything. `--bootstrap` or `DOTFILES_BOOTSTRAP=1` is required for installation, and `--dry-run` prints the apt commands instead of running them. macOS/Homebrew bootstrap is intentionally deferred; keep Homebrew package migration separate from Linux/WSL apt metadata.
+Both `./install` and `./install-role` expand dependencies recursively, de-duplicate roles, and preserve dependency-first ordering before invoking Dotbot. The `dotbot-role-deps` plugin then treats `depends` as a no-op during the Dotbot pass because expansion has already happened.
+
+## Host-specific package directives
+
+Declare role package dependencies directly in `meta/roles/<role>.yaml` next to the links and setup scripts that need them.
+
+Use Homebrew directives for macOS packages:
+
+```yaml
+- tap:
+    - oven-sh/bun
+
+- brew:
+    - oven-sh/bun/bun
+```
+
+Use the local `apt` directive for Linux-family package dependencies:
+
+```yaml
+- apt:
+    - curl
+    - unzip
+```
+
+`./install` and `./install-role` add host-specific directive exclusions before invoking Dotbot: macOS skips `apt`, while Linux/WSL/docker skip Homebrew directives. On Linux-family hosts, the `apt` directive uses apt/dpkg when available and falls back to yum/rpm for RPM-based hosts such as Azure Linux/CBL-Mariner. Normal Linux-family installs report missing packages without installing anything. `--dry-run` prints the package-manager commands instead of running them.
+
+Keep default package roles conservative. Tools such as `git-lfs`, `pipx`, `uv`, Bun, and developer utilities like `rg`, `fd`, `fzf`, `bat`, `ncdu`, and `yq` remain manual or opt-in unless a dedicated role is added later. Tools such as `kubectl`, Docker, Java, Kerberos tooling, and Volta are not managed by dotfiles package roles.
 
 ## Link safety and forced targets
 
@@ -134,6 +181,7 @@ Dotbot link defaults are defined in `meta/base.yaml`: links are created as neede
 |------|--------|----------|--------|
 | `git` | `~/.gitconfig` | `force: true`, `backup: true` | The repo manages the shared Git config while machine-local settings live in `~/.gitconfig_local`. |
 | `zsh` | `~/.zshrc` | `force: true`, `backup: true` | The plain zsh role must replace any existing zsh startup file with the repo-managed one. |
+| `atuin` | `~/.config/atuin/config.toml` | `force: true`, `backup: true` | The repo manages the shared atuin config; an existing local config is backed up so it adopts the managed default. atuin's encryption key and history stay in `~/.local/share/atuin/` and are never managed. |
 
 The `ohmyzsh` role intentionally uses the safe link defaults for `~/.zshrc` instead of forcing or cleaning it. Its helper copies the checked-out `oh-my-zsh` submodule into `~/.oh-my-zsh` so future dotfiles submodule updates do not automatically change the local shell framework; move conflicting local files aside manually before installing the role.
 
