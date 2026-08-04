@@ -3,11 +3,6 @@
 
 PATH=/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:$PATH
 
-# Add home/bin to PATH if it exists
-if ! [[ -z ${HOME} || "${PATH}" =~ ^${HOME}/bin ]]; then
-    PATH="${HOME}/bin:${PATH}"
-fi
-
 # Add ~/.local/bin to PATH if it exists
 if [ -d "$HOME/.local/bin" ]; then
     PATH="$HOME/.local/bin:$PATH"
@@ -31,6 +26,11 @@ fi
 # Add Visual Studio Code CLI (`code`) when running on macOS.
 if [[ "${OSTYPE:-}" == darwin* ]] && [ -d "/Applications/Visual Studio Code.app" ]; then
     PATH="$PATH:/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
+fi
+
+# Keep repo-managed wrappers ahead of the commands they delegate to.
+if ! [[ -z ${HOME} || "${PATH}" =~ ^${HOME}/bin ]]; then
+    PATH="${HOME}/bin:${PATH}"
 fi
 
 PATH=".:${PATH}"

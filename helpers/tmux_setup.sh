@@ -6,10 +6,31 @@ BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 managed_tpm="${BASE_DIR}/tpm"
 tpm_dir="$HOME/.tmux/plugins/tpm"
 
+link_managed_tpm() {
+  if [ ! -f "$managed_tpm/tpm" ] || [ ! -x "$managed_tpm/bin/install_plugins" ]; then
+    echo "Managed TPM checkout is unavailable at $managed_tpm. Run: git submodule update --init --recursive" >&2
+    return 1
+  fi
+
+  ln -s "$managed_tpm" "$tpm_dir"
+}
+
 ensure_tpm_available() {
   mkdir -p "$(dirname "$tpm_dir")"
 
   if [ -L "$tpm_dir" ]; then
+    if [ -f "$tpm_dir/tpm" ] && [ -x "$tpm_dir/bin/install_plugins" ]; then
+      return 0
+    fi
+
+    if [ ! -e "$tpm_dir" ]; then
+      echo "Repairing broken TPM symlink at $tpm_dir." >&2
+      rm "$tpm_dir"
+      link_managed_tpm
+      return
+    fi
+
+    echo "Existing TPM symlink at $tpm_dir does not point to a usable checkout; leaving it in place." >&2
     return 0
   fi
 
@@ -28,7 +49,7 @@ ensure_tpm_available() {
     return 0
   fi
 
-  ln -s "$managed_tpm" "$tpm_dir"
+  link_managed_tpm
 }
 
 ensure_tpm_available

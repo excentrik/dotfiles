@@ -4,15 +4,33 @@
 # Requires: yabai running, Accessibility permissions for Terminal/shell
 
 set -euo pipefail
+umask 077
 
 LAYOUT_DIR="$HOME/.window-layouts"
 LOG_FILE="$HOME/.window-layouts/debug.log"
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/window-layout"
+SCHEDULE_PID_FILE="$RUNTIME_DIR/restore.pid"
 STALE_DAYS=30
 
-log_debug() {
+secure_layout_storage() {
     mkdir -p "$LAYOUT_DIR"
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
+    chmod 700 "$LAYOUT_DIR"
+    while IFS= read -r -d '' layout_file; do
+        chmod 600 "$layout_file"
+    done < <(find -H "$LAYOUT_DIR" -maxdepth 1 -type f -print0)
 }
+
+secure_runtime_storage() {
+    mkdir -p "$RUNTIME_DIR"
+    chmod 700 "$RUNTIME_DIR"
+}
+
+log_debug() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"
+    chmod 600 "$LOG_FILE"
+}
+
+secure_layout_storage
 
 yabai_query_json() {
     local domain="$1"
@@ -222,8 +240,6 @@ if let data = try? JSONSerialization.data(withJSONObject: result),
 save_layout() {
     local config_id
     config_id=$(get_config_id)
-    mkdir -p "$LAYOUT_DIR"
-
     local layout_file="$LAYOUT_DIR/$config_id"
     local tmp_layout_file="$LAYOUT_DIR/.${config_id}.tmp.$$"
 
@@ -475,8 +491,10 @@ PY
     # Keep one backup of the previous good save, then atomically replace it.
     if [[ -f "$layout_file" ]]; then
         cp "$layout_file" "${layout_file}.bak"
+        chmod 600 "${layout_file}.bak"
     fi
     mv "$tmp_layout_file" "$layout_file"
+    chmod 600 "$layout_file"
 
     log_debug "SAVE: $window_count window(s) for config $config_id"
     echo "Saved $window_count window(s) for display config $config_id"
@@ -881,8 +899,17 @@ def move_record(phase, saved_entry, current_entry, target_display, target_key, m
         'fullscreen': saved_entry.get('fullscreen', current_entry.get('fullscreen', False)),
     }
 
-log(f"RESTORE: current_windows={json.dumps(current, ensure_ascii=False)}")
-log(f"RESTORE: saved_windows={json.dumps(saved, ensure_ascii=False)}")
+def windows_for_log(entries):
+    redacted = []
+    for entry in entries:
+        safe_entry = dict(entry)
+        if safe_entry.get('chrome_url'):
+            safe_entry['chrome_url'] = '<redacted>'
+        redacted.append(safe_entry)
+    return redacted
+
+log(f"RESTORE: current_windows={json.dumps(windows_for_log(current), ensure_ascii=False)}")
+log(f"RESTORE: saved_windows={json.dumps(windows_for_log(saved), ensure_ascii=False)}")
 
 # Phase 1: Match by exact app + title
 used_saved = set()
@@ -943,9 +970,9 @@ for si, s in enumerate(saved):
     ci, c = candidates[0]
     if not target_matches_current(target_key, c):
         moves.append(move_record('phase0_url', s, c, target_display, target_key, 'chrome_active_tab_url'))
-        log(f"RESTORE: move phase0_url app={c['app']} title={c['title']} url={c.get('chrome_url')} from={c['display']} to={target_display.get('name')} key={target_key}")
+        log(f"RESTORE: move phase0_url app={c['app']} title={c['title']} url=<redacted> from={c['display']} to={target_display.get('name')} key={target_key}")
     else:
-        log(f"RESTORE: keep phase0_url app={c['app']} title={c['title']} url={c.get('chrome_url')} display={c['display']} key={target_key}")
+        log(f"RESTORE: keep phase0_url app={c['app']} title={c['title']} url=<redacted> display={c['display']} key={target_key}")
     used_saved.add(si)
     used_current.add(ci)
 
@@ -1145,7 +1172,7 @@ def target_bounds(move):
 def window_title_matches(window_title, title):
     return window_title == title or window_title.startswith(title) or title.startswith(window_title)
 
-def verify_move(app, title, target_yabai_display, target_frame):
+def verify_move(yabai_window_id, app, title, target_yabai_display, target_frame):
     try:
         verify = subprocess.run(
             ['yabai', '-m', 'query', '--windows'],
@@ -1165,11 +1192,15 @@ def verify_move(app, title, target_yabai_display, target_frame):
         log(f"RESTORE: verify_json_error error={exc}")
         return False
     for w in windows:
-        if w.get('app') != app:
-            continue
-        wt = w.get('title', '')
-        if not window_title_matches(wt, title):
-            continue
+        if yabai_window_id is not None:
+            if str(w.get('id')) != str(yabai_window_id):
+                continue
+        else:
+            if w.get('app') != app:
+                continue
+            wt = w.get('title', '')
+            if not window_title_matches(wt, title):
+                continue
         if target_yabai_display is not None and w.get('display') == target_yabai_display:
             return True
         frame = w.get('frame', {})
@@ -1191,6 +1222,7 @@ for m in moves:
     target_key = m.get('target_display_key', '')
     target_yabai_display = m.get('target_yabai_display')
     target_frame = m.get('target_frame') or {}
+    yabai_window_id = m.get('yabai_window_id')
     should_fs = m['fullscreen']
     phase = m.get('phase', 'unknown')
     bounds = target_bounds(m)
@@ -1348,7 +1380,7 @@ end tell
 
     # Step 3.5: Verify the move actually happened. If not, try menu fallback.
     time.sleep(1)
-    actually_moved = verify_move(app, title, target_yabai_display, target_frame)
+    actually_moved = verify_move(yabai_window_id, app, title, target_yabai_display, target_frame)
     log(f"RESTORE: verify app={app} title={title} target={target} actually_moved={actually_moved}")
 
     if not actually_moved:
@@ -1390,7 +1422,7 @@ end tell
 ''')
         log(f"RESTORE: fallback_menu_result app={app} title={title} target={target} stdout={fallback_result.stdout.strip()}")
         time.sleep(2)
-        actually_moved = verify_move(app, title, target_yabai_display, target_frame)
+        actually_moved = verify_move(yabai_window_id, app, title, target_yabai_display, target_frame)
         log(f"RESTORE: fallback_verify app={app} title={title} target={target} actually_moved={actually_moved}")
 
     # Step 3.9: yabai native-fullscreen fallback. AppleScript/System Events can only
@@ -1406,7 +1438,6 @@ end tell
     # polled rather than blindly chained.
     yabai_fallback_handled_fs = False
     if not actually_moved:
-        yabai_window_id = m.get('yabai_window_id')
         if yabai_window_id and target_yabai_display and should_fs:
             log(f"RESTORE: yabai_fallback_start app={app} title={title} yabai_window_id={yabai_window_id} target_yabai_display={target_yabai_display}")
             rc, out, err = yabai_cmd(['window', str(yabai_window_id), '--toggle', 'native-fullscreen'])
@@ -1441,7 +1472,7 @@ end tell
             else:
                 log(f"RESTORE: yabai_fallback_abort reason=fullscreen_exit_failed_or_timed_out")
 
-            actually_moved = verify_move(app, title, target_yabai_display, target_frame)
+            actually_moved = verify_move(yabai_window_id, app, title, target_yabai_display, target_frame)
             log(f"RESTORE: yabai_fallback_verify app={app} title={title} target={target} actually_moved={actually_moved}")
         elif not yabai_window_id:
             log(f"RESTORE: yabai_fallback_skipped reason=no_yabai_window_id")
@@ -1511,6 +1542,54 @@ restore_backup() {
     restore_layout
 }
 
+schedule_restore() {
+    secure_runtime_storage
+
+    if [[ -f "$SCHEDULE_PID_FILE" && ! -L "$SCHEDULE_PID_FILE" ]]; then
+        local pending_pid=""
+        local pending_token=""
+        read -r pending_pid pending_token < "$SCHEDULE_PID_FILE" || true
+
+        if [[ "$pending_pid" =~ ^[0-9]+$ && "$pending_token" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            local pending_user
+            local pending_command
+            pending_user=$(ps -p "$pending_pid" -o user= 2>/dev/null | xargs || true)
+            pending_command=$(ps -p "$pending_pid" -o command= 2>/dev/null || true)
+            if [[ "$pending_user" == "$(id -un)" && "$pending_command" == *"window-layout _delayed-restore $pending_token"* ]]; then
+                kill "$pending_pid" 2>/dev/null || true
+            fi
+        fi
+    fi
+
+    rm -f "$SCHEDULE_PID_FILE"
+    local token
+    token="$(date +%s)-$$-${RANDOM}"
+    "$0" _delayed-restore "$token" >> "$RUNTIME_DIR/yabai.out.log" 2>> "$RUNTIME_DIR/yabai.err.log" &
+    printf '%s %s\n' "$!" "$token" > "$SCHEDULE_PID_FILE"
+    chmod 600 "$SCHEDULE_PID_FILE" "$RUNTIME_DIR/yabai.out.log" "$RUNTIME_DIR/yabai.err.log" 2>/dev/null || true
+}
+
+run_delayed_restore() {
+    local token="${1:-}"
+    if [[ ! "$token" =~ ^[A-Za-z0-9._-]+$ ]]; then
+        echo "Invalid scheduled restore token." >&2
+        return 2
+    fi
+
+    secure_runtime_storage
+    cleanup_scheduled_restore() {
+        local scheduled=""
+        scheduled=$(cat "$SCHEDULE_PID_FILE" 2>/dev/null || true)
+        if [[ "$scheduled" == "$$ $token" ]]; then
+            rm -f "$SCHEDULE_PID_FILE"
+        fi
+    }
+    trap cleanup_scheduled_restore EXIT
+
+    sleep 30
+    restore_layout
+}
+
 usage() {
     echo "Usage: window-layout <save|restore|restore-backup|list>"
     echo ""
@@ -1525,5 +1604,7 @@ case "${1:-}" in
     restore)         shift; restore_layout "${1:-}" ;;
     restore-backup)  restore_backup ;;
     list)            list_layouts ;;
+    schedule-restore) schedule_restore ;;
+    _delayed-restore) shift; run_delayed_restore "${1:-}" ;;
     *)               usage; exit 1 ;;
 esac

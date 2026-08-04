@@ -491,10 +491,11 @@ check_copilot_wrapper_supports_experimental_opt_out() {
   local tmp_home
   local fake_bin
   local output
+  local resolved
 
   tmp_home="$(mktemp -d)"
-  fake_bin="$(mktemp -d)"
-  mkdir -p "${tmp_home}/bin"
+  fake_bin="${tmp_home}/.local/bin"
+  mkdir -p "${tmp_home}/bin" "${fake_bin}"
   ln -s "${BASE_DIR}/home_files/bin/copilot" "${tmp_home}/bin/copilot"
 
   cat > "${fake_bin}/copilot" <<'SH'
@@ -503,35 +504,79 @@ printf '%s\n' "$*"
 SH
   chmod +x "${fake_bin}/copilot"
 
+  resolved="$(HOME="${tmp_home}" PATH="/usr/bin:/bin" bash -c 'source "$1"; command -v copilot' _ "${BASE_DIR}/home_files/.path")"
+  if [ "${resolved}" != "${tmp_home}/bin/copilot" ]; then
+    echo "Expected ~/bin/copilot to precede ~/.local/bin/copilot; resolved: ${resolved}" >&2
+    rm -rf "${tmp_home}"
+    return 1
+  fi
+
   output="$(HOME="${tmp_home}" PATH="${tmp_home}/bin:${fake_bin}:/usr/bin:/bin" "${tmp_home}/bin/copilot" status)"
   if [ "${output}" != "status" ]; then
     echo "Expected Copilot wrapper to rely on settings for experimental mode; got: ${output}" >&2
-    rm -rf "${tmp_home}" "${fake_bin}"
+    rm -rf "${tmp_home}"
     return 1
   fi
 
   output="$(HOME="${tmp_home}" PATH="${tmp_home}/bin:${fake_bin}:/usr/bin:/bin" "${tmp_home}/bin/copilot" --no-experimental status)"
   if [ "${output}" != "--no-experimental status" ]; then
     echo "Expected Copilot wrapper to preserve --no-experimental opt-out; got: ${output}" >&2
-    rm -rf "${tmp_home}" "${fake_bin}"
+    rm -rf "${tmp_home}"
     return 1
   fi
 
   output="$(HOME="${tmp_home}" PATH="${tmp_home}/bin:${fake_bin}:/usr/bin:/bin" DOTFILES_COPILOT_EXPERIMENTAL=0 "${tmp_home}/bin/copilot" status)"
   if [ "${output}" != "--no-experimental status" ]; then
     echo "Expected DOTFILES_COPILOT_EXPERIMENTAL=0 to pass --no-experimental; got: ${output}" >&2
-    rm -rf "${tmp_home}" "${fake_bin}"
+    rm -rf "${tmp_home}"
     return 1
   fi
 
   output="$(HOME="${tmp_home}" PATH="${tmp_home}/bin:${fake_bin}:/usr/bin:/bin" DOTFILES_COPILOT_EXPERIMENTAL=0 "${tmp_home}/bin/copilot" --experimental status)"
   if [ "${output}" != "--experimental status" ]; then
     echo "Expected explicit --experimental to override DOTFILES_COPILOT_EXPERIMENTAL=0; got: ${output}" >&2
-    rm -rf "${tmp_home}" "${fake_bin}"
+    rm -rf "${tmp_home}"
     return 1
   fi
 
-  rm -rf "${tmp_home}" "${fake_bin}"
+  rm -rf "${tmp_home}"
+}
+
+check_tmux_setup_repairs_broken_tpm_link() {
+  status "Checking tmux setup repairs broken TPM links"
+  local tmp_home
+  local tmp_bin
+  local linked_tpm
+
+  tmp_home="$(mktemp -d)"
+  tmp_bin="$(mktemp -d)"
+  mkdir -p \
+    "${tmp_home}/.tmux/plugins" \
+    "${tmp_home}/.tmux/plugins/tmux-resurrect" \
+    "${tmp_home}/.tmux/plugins/tmux-continuum"
+  ln -s "${tmp_home}/missing-tpm" "${tmp_home}/.tmux/plugins/tpm"
+
+  cat > "${tmp_bin}/tmux" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-V" ]; then
+  echo "tmux 3.4"
+fi
+SH
+  chmod +x "${tmp_bin}/tmux"
+
+  if ! HOME="${tmp_home}" PATH="${tmp_bin}:/usr/bin:/bin" helpers/tmux_setup.sh >/dev/null; then
+    rm -rf "${tmp_home}" "${tmp_bin}"
+    return 1
+  fi
+
+  linked_tpm=$(readlink "${tmp_home}/.tmux/plugins/tpm")
+  if [ "${linked_tpm}" != "${BASE_DIR}/tpm" ] || [ ! -x "${tmp_home}/.tmux/plugins/tpm/bin/install_plugins" ]; then
+    echo "Expected broken TPM link to be repaired with the managed checkout." >&2
+    rm -rf "${tmp_home}" "${tmp_bin}"
+    return 1
+  fi
+
+  rm -rf "${tmp_home}" "${tmp_bin}"
 }
 
 check_claude_setup_merges_safe_defaults() {
@@ -683,6 +728,7 @@ main() {
   check_copilot_settings_enable_experimental
   check_copilot_setup_merges_experimental_default
   check_copilot_wrapper_supports_experimental_opt_out
+  check_tmux_setup_repairs_broken_tpm_link
   check_claude_setup_merges_safe_defaults
   configs=()
   while IFS= read -r config; do
