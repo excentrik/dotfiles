@@ -1,9 +1,0 @@
-{
-  "description": "Git role dependencies",
-  "commands": [
-    {
-      "name": "git",
-      "apt": ["git"]
-    }
-  ]
-}

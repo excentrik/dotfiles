@@ -1,3 +1,8 @@
+- apt:
+    - openssh-client
+    - netcat-openbsd
+    - iproute2
+
 - link:
     ~/.aliases/docker_container_aliases.sh: home_files/.aliases/docker_container_aliases.sh
     ~/.aliases/ssh_tunnels.sh: home_files/.aliases/ssh_tunnels.sh

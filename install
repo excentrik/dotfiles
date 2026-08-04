@@ -15,6 +15,7 @@ DOTBOT_BIN="bin/dotbot"
 
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${BASE_DIR}"
+source helpers/role_dependencies.sh
 
 detect_host() {
   case "$OSTYPE" in
@@ -41,14 +42,21 @@ parse_dotbot_args() {
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --bootstrap)
-        DOTFILES_BOOTSTRAP=1
+        export DOTFILES_BOOTSTRAP=1
         shift
         ;;
       --only|--except)
-        DOTBOT_ARGS+=("$1")
+        local option="$1"
         shift
+        if [ "${option}" = "--only" ]; then
+          DOTBOT_ARGS+=("${option}")
+        fi
         while [ "$#" -gt 0 ] && [[ "$1" != -* ]]; do
-          DOTBOT_ARGS+=("$1")
+          if [ "${option}" = "--except" ]; then
+            DOTBOT_EXCEPT+=("$1")
+          else
+            DOTBOT_ARGS+=("$1")
+          fi
           shift
         done
         ;;
@@ -91,19 +99,91 @@ has_dry_run() {
   return 1
 }
 
-run_package_bootstrap() {
-  local role="$1"
-  local package_args=(--host "${_ENV}" --role "${role}")
+is_checked_out_submodule() {
+  local path="$1"
+  local superproject
 
-  if has_dry_run "${DOTBOT_ARGS[@]}"; then
-    package_args+=(--dry-run)
+  [ -d "${path}" ] || return 1
+
+  superproject="$(git -C "${path}" rev-parse --show-superproject-working-tree 2> /dev/null || true)"
+  [ -n "${superproject}" ] || return 1
+
+  [ "$(cd "${superproject}" && pwd)" = "${BASE_DIR}" ]
+}
+
+build_submodule_backup_path() {
+  local source_path="$1"
+  local timestamp="$2"
+  local candidate="${source_path}.pre-submodule-backup.${timestamp}"
+  local counter=1
+
+  while [ -e "${candidate}" ]; do
+    candidate="${source_path}.pre-submodule-backup.${timestamp}.${counter}"
+    counter=$((counter + 1))
+  done
+
+  printf '%s' "${candidate}"
+}
+
+prepare_submodule_paths() {
+  local submodule_paths
+  local timestamp
+  local entry
+  local path
+  local backup_path
+
+  if ! submodule_paths="$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2> /dev/null)"; then
+    return 0
   fi
 
-  if [ "${DOTFILES_BOOTSTRAP:-}" = "1" ]; then
-    package_args+=(--bootstrap)
-  fi
+  timestamp="$(date +%Y%m%d%H%M%S)"
+  while IFS= read -r entry; do
+    path="${entry#* }"
+    [ -n "${path}" ] || continue
+    [ -e "${path}" ] || continue
 
-  python3 helpers/package_bootstrap.py "${package_args[@]}"
+    if is_checked_out_submodule "${path}"; then
+      continue
+    fi
+
+    backup_path="$(build_submodule_backup_path "${path}" "${timestamp}")"
+    echo "Found pre-existing content at ${path}; moving it to ${backup_path} (backup only)"
+    echo "To restore it later: mv '${backup_path}' '${path}'"
+    mv "${path}" "${backup_path}"
+  done <<< "${submodule_paths}"
+}
+
+add_unique_skip() {
+  local directive="$1"
+  local existing
+  for existing in "${DOTBOT_EXCEPT[@]}"; do
+    if [ "${existing}" = "${directive}" ]; then
+      return 0
+    fi
+  done
+  DOTBOT_EXCEPT+=("${directive}")
+}
+
+add_host_directive_exclusions() {
+  case "${_ENV}" in
+    osx)
+      add_unique_skip apt
+      ;;
+    unix|wsl|docker)
+      add_unique_skip tap
+      add_unique_skip brew
+      add_unique_skip cask
+      add_unique_skip brewfile
+      add_unique_skip services
+      ;;
+  esac
+}
+
+build_dotbot_args() {
+  EFFECTIVE_DOTBOT_ARGS=("${DOTBOT_ARGS[@]}")
+  if [ "${#DOTBOT_EXCEPT[@]}" -gt 0 ]; then
+    EFFECTIVE_DOTBOT_ARGS+=(--except "${DOTBOT_EXCEPT[@]}")
+  fi
 }
 
 # Refuse to run when both the `zsh` (plain) and `ohmyzsh` roles are scheduled:
@@ -140,16 +220,22 @@ if [ ! -f "${META_DIR}/${PROFILES_DIR}/${_ENV}${CONFIG_SUFFIX}" ]; then
 fi
 
 CONFIGS=()
+EXPANDED_ROLES=()
+ROLE_EXPANSION_STACK=()
 EXTRA_ROLES=()
 DOTBOT_ARGS=()
+DOTBOT_EXCEPT=()
+EFFECTIVE_DOTBOT_ARGS=()
 
 parse_dotbot_args "$@"
+add_host_directive_exclusions
+build_dotbot_args
 
 echo "Installing dotfiles for host type ${_ENV}"
-if has_dry_run "${DOTBOT_ARGS[@]}"; then
+if has_dry_run "${EFFECTIVE_DOTBOT_ARGS[@]}"; then
   echo "Dry-run requested; skipping submodule update"
 else
-  submodule_args=(--init --recursive)
+  submodule_args=(--init --recursive --force)
   if [ "${DOTFILES_UPDATE_SUBMODULES:-}" = "1" ]; then
     submodule_args+=(--remote)
     echo "Updating submodules from upstream remotes"
@@ -157,6 +243,7 @@ else
     echo "Updating submodules to recorded commits"
   fi
 
+  prepare_submodule_paths
   if ! git submodule update "${submodule_args[@]}"; then
     exit 1
   fi
@@ -168,14 +255,17 @@ while IFS= read -r config; do
   [ -n "${config}" ] && CONFIGS+=("${config}")
 done < "${META_DIR}/${PROFILES_DIR}/${_ENV}${CONFIG_SUFFIX}"
 
-validate_role_exclusion "${CONFIGS[@]}" "${EXTRA_ROLES[@]}"
+if ! role_deps_expand_roles "${CONFIGS[@]}" "${EXTRA_ROLES[@]}"; then
+  echo "error: role dependency resolution failed." >&2
+  exit 1
+fi
+validate_role_exclusion "${EXPANDED_ROLES[@]}"
 
-_dotbot=("${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin dotbot-brew)
+_dotbot=("${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin dotbot-brew --plugin dotbot-apt --plugin dotbot-role-deps)
 
-"${_dotbot[@]}" -c "${META_DIR}/${BASE_CONFIG}${CONFIG_SUFFIX}" "${DOTBOT_ARGS[@]}"
+"${_dotbot[@]}" -c "${META_DIR}/${BASE_CONFIG}${CONFIG_SUFFIX}" "${EFFECTIVE_DOTBOT_ARGS[@]}"
 
-for config in "${CONFIGS[@]}" "${EXTRA_ROLES[@]}"; do
-  run_package_bootstrap "${config}"
-  "${_dotbot[@]}" -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}" "${DOTBOT_ARGS[@]}"
+for config in "${EXPANDED_ROLES[@]}"; do
+  "${_dotbot[@]}" -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}" "${EFFECTIVE_DOTBOT_ARGS[@]}"
   echo -e "Configured $config"
 done

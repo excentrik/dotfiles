@@ -1,9 +1,0 @@
-{
-  "description": "Python role dependencies",
-  "commands": [
-    {
-      "name": "python3",
-      "apt": ["python3"]
-    }
-  ]
-}

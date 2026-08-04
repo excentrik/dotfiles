@@ -12,6 +12,7 @@ DOTBOT_BIN="bin/dotbot"
 
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${BASE_DIR}"
+source helpers/role_dependencies.sh
 
 usage() {
   cat <<'USAGE'
@@ -29,14 +30,21 @@ parse_dotbot_args() {
   while [ "$#" -gt 0 ]; do
     case "$1" in
       --bootstrap)
-        DOTFILES_BOOTSTRAP=1
+        export DOTFILES_BOOTSTRAP=1
         shift
         ;;
       --only|--except)
-        DOTBOT_ARGS+=("$1")
+        local option="$1"
         shift
+        if [ "${option}" = "--only" ]; then
+          DOTBOT_ARGS+=("${option}")
+        fi
         while [ "$#" -gt 0 ] && [[ "$1" != -* ]]; do
-          DOTBOT_ARGS+=("$1")
+          if [ "${option}" = "--except" ]; then
+            DOTBOT_EXCEPT+=("$1")
+          else
+            DOTBOT_ARGS+=("$1")
+          fi
           shift
         done
         ;;
@@ -99,19 +107,37 @@ has_dry_run() {
   return 1
 }
 
-run_package_bootstrap() {
-  local role="$1"
-  local package_args=(--host "${_ENV}" --role "${role}")
+add_unique_skip() {
+  local directive="$1"
+  local existing
+  for existing in "${DOTBOT_EXCEPT[@]}"; do
+    if [ "${existing}" = "${directive}" ]; then
+      return 0
+    fi
+  done
+  DOTBOT_EXCEPT+=("${directive}")
+}
 
-  if has_dry_run "${DOTBOT_ARGS[@]}"; then
-    package_args+=(--dry-run)
+add_host_directive_exclusions() {
+  case "${_ENV}" in
+    osx)
+      add_unique_skip apt
+      ;;
+    unix|wsl|docker)
+      add_unique_skip tap
+      add_unique_skip brew
+      add_unique_skip cask
+      add_unique_skip brewfile
+      add_unique_skip services
+      ;;
+  esac
+}
+
+build_dotbot_args() {
+  EFFECTIVE_DOTBOT_ARGS=("${DOTBOT_ARGS[@]}")
+  if [ "${#DOTBOT_EXCEPT[@]}" -gt 0 ]; then
+    EFFECTIVE_DOTBOT_ARGS+=(--except "${DOTBOT_EXCEPT[@]}")
   fi
-
-  if [ "${DOTFILES_BOOTSTRAP:-}" = "1" ]; then
-    package_args+=(--bootstrap)
-  fi
-
-  python3 helpers/package_bootstrap.py "${package_args[@]}"
 }
 
 # Refuse to run when both the `zsh` (plain) and `ohmyzsh` roles are scheduled:
@@ -136,21 +162,30 @@ validate_role_exclusion() {
 }
 
 ROLES=()
+EXPANDED_ROLES=()
+ROLE_EXPANSION_STACK=()
 DOTBOT_ARGS=()
+DOTBOT_EXCEPT=()
+EFFECTIVE_DOTBOT_ARGS=()
 _ENV="$(detect_host)"
 
 parse_dotbot_args "$@"
+add_host_directive_exclusions
+build_dotbot_args
 
 if [ "${#ROLES[@]}" -eq 0 ]; then
   usage >&2
   exit 1
 fi
 
-validate_role_exclusion "${ROLES[@]}"
+if ! role_deps_expand_roles "${ROLES[@]}"; then
+  echo "error: role dependency resolution failed." >&2
+  exit 1
+fi
+validate_role_exclusion "${EXPANDED_ROLES[@]}"
 
-_dotbot=("${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin dotbot-brew)
+_dotbot=("${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin dotbot-brew --plugin dotbot-apt --plugin dotbot-role-deps)
 
-for config in "${ROLES[@]}"; do
-  run_package_bootstrap "${config}"
-  "${_dotbot[@]}" -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}" --verbose "${DOTBOT_ARGS[@]}"
+for config in "${EXPANDED_ROLES[@]}"; do
+  "${_dotbot[@]}" -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}" --verbose "${EFFECTIVE_DOTBOT_ARGS[@]}"
 done

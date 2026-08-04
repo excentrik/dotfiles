@@ -5,6 +5,9 @@
       force: false
       backup: true
 
+- apt:
+    - zsh
+
 - link:
     ~/.zsh_aliases: home_files/.zsh_aliases
     ~/.zsh_prompt: home_files/.zsh_prompt
