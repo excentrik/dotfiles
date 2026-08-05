@@ -12,6 +12,7 @@
 [push]
     # Upstream pushes to the upstream branch, no matter what it is called.
     default = upstream
+    autoSetupRemote = true
 
 [pull]
     ff = true
@@ -76,6 +77,7 @@
 
 [branch]
     autosetuprebase = always
+    sort = -committerdate
 
 # Allow local customizations in the .gitconfig_local file
 [include]

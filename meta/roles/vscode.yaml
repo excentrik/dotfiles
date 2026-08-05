@@ -1,0 +1,6 @@
+- shell:
+  -
+    command: helpers/vscode_setup.sh
+    stdout: true
+    stdin: true
+    stderr: true

@@ -1,2 +1,15 @@
+- depends:
+    - submodules
+
+- apt:
+    - tmux
+
 - link:
     ~/.tmux.conf: home_files/.tmux.conf
+    ~/bin/tmux-session: home_files/bin/tmux-session
+
+- shell:
+    -
+      command: helpers/tmux_setup.sh
+      stdout: true
+      stderr: true

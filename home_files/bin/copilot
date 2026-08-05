@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+local_node_bin="${HOME}/.local/node-v24/bin"
+if [ -d "${local_node_bin}" ]; then
+  PATH="${local_node_bin}:${PATH}"
+  export PATH
+fi
+
+is_experimental_default_disabled() {
+  case "${DOTFILES_COPILOT_EXPERIMENTAL:-1}" in
+    0|false|FALSE|no|NO|off|OFF) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+has_experimental_arg() {
+  local arg
+
+  for arg in "$@"; do
+    case "${arg}" in
+      --experimental|--no-experimental) return 0 ;;
+    esac
+  done
+
+  return 1
+}
+
+find_real_copilot() {
+  local IFS=:
+  local path_entry
+  local candidate
+
+  for path_entry in ${PATH}; do
+    candidate="${path_entry}/copilot"
+    [ -x "${candidate}" ] || continue
+    [ "${candidate}" != "${0}" ] || continue
+    [ "${candidate}" != "${HOME}/bin/copilot" ] || continue
+    printf '%s\n' "${candidate}"
+    return 0
+  done
+
+  candidate="${HOME}/.local/bin/copilot"
+  if [ -x "${candidate}" ]; then
+    printf '%s\n' "${candidate}"
+    return 0
+  fi
+
+  return 1
+}
+
+real_copilot="$(find_real_copilot || true)"
+if [ -z "${real_copilot}" ]; then
+  echo "error: real 'copilot' command not found after ${HOME}/bin on PATH." >&2
+  exit 127
+fi
+
+if is_experimental_default_disabled && ! has_experimental_arg "$@"; then
+  exec "${real_copilot}" --no-experimental "$@"
+fi
+
+exec "${real_copilot}" "$@"

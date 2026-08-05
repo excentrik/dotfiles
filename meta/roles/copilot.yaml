@@ -1,4 +1,9 @@
+- apt:
+    - curl
+
 - link:
+    ~/.copilot/instructions/direct_fable.instructions.md: home_files/.copilot/instructions/direct_fable.instructions.md
+    ~/bin/copilot: home_files/bin/copilot
     ~/.aliases/copilot.sh: home_files/.aliases/copilot.sh
 
 - shell:

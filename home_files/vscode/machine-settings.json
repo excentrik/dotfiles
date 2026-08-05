@@ -1,0 +1,10 @@
+{
+  "extensions.ignoreRecommendations": true,
+  "extensions.showRecommendationsOnlyOnDemand": true,
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 30000,
+  "peacock.affectActivityBar": false,
+  "peacock.affectStatusBar": false,
+  "peacock.remoteColor": "#5555FF",
+  "terminal.integrated.scrollback": 10000
+}

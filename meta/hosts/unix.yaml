@@ -8,5 +8,5 @@
 - docker_container: ~
 - python: ~
 - git: ~
-- claude: ~
+- direnv: ~
 - copilot: ~

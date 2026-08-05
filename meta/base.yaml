@@ -19,4 +19,6 @@
 - shell:
   - [mkdir -p ~/bin, Creating bin directory]
   - [mkdir -p ~/.aliases, Creating aliases directory]
-
+  -
+    command: helpers/aliases_cleanup.sh
+    stdout: true

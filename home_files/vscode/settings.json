@@ -1,0 +1,37 @@
+{
+  "workbench.startupEditor": "none",
+  "window.commandCenter": true,
+  "workbench.colorTheme": "Visual Studio Dark",
+  "redhat.telemetry.enabled": false,
+  "files.watcherExclude": {
+    "**/.bloop": true,
+    "**/.metals": true
+  },
+  "window.newWindowProfile": "Default",
+  "git.autofetch": true,
+  "metals.javaOptions": [
+    "-Xmx12g",
+    "-Xms4g",
+    "-XX:+UseG1GC",
+    "-XX:+UseStringDeduplication"
+  ],
+  "remote.SSH.localServerDownload": "auto",
+  "remote.SSH.connectTimeout": 45,
+  "remote.autoForwardPortsSource": "hybrid",
+  "editor.formatOnSave": true,
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "always",
+      "source.fixAll": "always"
+    },
+    "editor.formatOnSave": true,
+    "jediEnabled": false
+  },
+  "claudeCode.preferredLocation": "sidebar",
+  "claudeCode.useTerminal": true,
+  "terminal.integrated.copyOnSelection": true,
+  "terminal.integrated.fontLigatures.enabled": true,
+  "terminal.integrated.suggest.enabled": true,
+  "terminal.integrated.persistentSessionScrollback": 10000
+}

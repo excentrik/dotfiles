@@ -5,6 +5,9 @@
       force: false
       backup: true
 
+- apt:
+    - zsh
+
 - shell:
   -
     command: helpers/ohmyzsh_setup.sh

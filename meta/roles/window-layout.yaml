@@ -1,0 +1,15 @@
+- defaults:
+    link:
+      create: true
+      relink: true
+
+- tap:
+    - koekeishiya/formulae
+
+- brew:
+    - koekeishiya/formulae/yabai
+
+- link:
+    ~/bin/window-layout: home_files/bin/window-layout
+    ~/.aliases/window-layout.sh: home_files/.aliases/window-layout.sh
+    ~/.yabairc: home_files/.yabairc

@@ -6,5 +6,5 @@
 - tmux: ~
 - python: ~
 - git: ~
-- claude: ~
+- direnv: ~
 - copilot: ~

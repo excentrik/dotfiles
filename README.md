@@ -51,7 +51,7 @@ If you don't want dotfiles to ask for any user input, you can use the `DOTFILES_
 ```
 On macOS, this skips the interactive Homebrew maintenance helper and the macOS system-defaults helper so unattended installs do not prompt for sudo or apply system settings.
 
-On Linux/WSL hosts with `apt`, installs report missing role package dependencies without installing them. To explicitly allow missing apt packages to be installed before each role runs, use bootstrap mode:
+On Linux/WSL hosts, installs report missing packages from role-local `apt` sections without installing them. The directive supports apt/dpkg and yum/rpm hosts. To explicitly allow missing packages to be installed as roles run, use bootstrap mode:
 
 ```bash
 ~/.dotfiles$ ./install --bootstrap
@@ -59,9 +59,11 @@ On Linux/WSL hosts with `apt`, installs report missing role package dependencies
 ~/.dotfiles$ ./install-role claude --bootstrap
 ```
 
-When combined with `--dry-run`, bootstrap prints the apt commands it would run without installing packages. macOS/Homebrew bootstrap is tracked separately; the existing macOS Homebrew role behavior is unchanged.
+When combined with `--dry-run`, bootstrap prints the package-manager commands it would run without installing packages. macOS uses role-local Homebrew directives (`tap`, `brew`, and `cask`) instead.
 
 The macOS host installs and selects **Xcode Command Line Tools only** via the `xcode_cli` role. It does not install full Xcode.
+
+The `tmux` role expects tmux >= 3.2 for the full configuration. tmux >= 3.3 is recommended for passthrough support used by OSC 52/OSC 8 and iTerm2 image protocol workflows; older versions skip guarded features.
 
 You can run these installation commands safely multiple times, if you think that helps with better installation.
 
@@ -89,7 +91,7 @@ Run non-mutating validation checks before changing install scripts or role metad
 ~/.dotfiles$ helpers/validate.sh
 ```
 
-By default, validation checks Linux/WSL-oriented hosts (`unix`, `wsl`, and `docker`). To include every role, including macOS and zsh roles:
+By default, validation checks Linux/WSL-oriented hosts (`unix`, `wsl`, and `docker`). Azure Linux/CBL-Mariner VMs use the existing `unix` profile. To include every role, including macOS and zsh roles:
 
 ```bash
 ~/.dotfiles$ helpers/validate.sh --all-roles
@@ -103,6 +105,18 @@ When testing install dry-runs from a worktree, use a temporary `HOME` so existin
 ~/.dotfiles$ HOME="$(mktemp -d)" ./install unix --dry-run
 ```
 
+Use the same `unix` dry-run for non-WSL Linux VMs before installing remotely.
+
+## Remote install preflight
+
+Before installing onto an existing machine, inspect local-only state without printing secret-bearing file contents. Use metadata-only checks for paths that Dotbot may replace or that must stay local:
+
+```bash
+~/.dotfiles$ ssh <host> 'for path in ~/.extra ~/.gitconfig_local ~/.gitconfig ~/.bashrc ~/.bash_profile ~/.profile ~/.config/systemd/user ~/.kube ~/.claude/settings.json ~/.claude/skills ~/.claude/projects ~/.copilot/settings.json ~/.copilot/skills ~/.copilot/sessions ~/.copilot/logs /etc/profile.d; do if [ -e "$path" ]; then stat -c "%n | %F | %s bytes | %y" "$path"; else printf "%s | missing\n" "$path"; fi; done'
+```
+
+Preserve machine-specific shell snippets in `~/.extra` and machine-specific Git settings in `~/.gitconfig_local`. Keep kubeconfig contents, user/system services, Claude/Copilot sessions, generated skills, caches, logs, plugin runtime state, auth/OAuth/API state, credentials, private keys, and system-managed `/etc` state out of this repository.
+
 ## Loading source files
 
 In order to load the dotfiles, you need to run:
@@ -113,6 +127,8 @@ In order to load the dotfiles, you need to run:
 ## Customization
 
 All linked files should be left as they are, unless you plan to commit changes to the dotfiles repo.
+
+Before installing on a machine that already has local shell startup customizations, move machine-specific snippets you still need into `~/.extra` so Dotbot can safely link the repo-managed startup files. Keep host-specific SSH agent/keychain setup, credentials, private paths, and other local state out of the repo.
 
 To add a custom  behaviour to your shell, such as personal aliases, etc:
 ```bash
@@ -132,6 +148,7 @@ See `LICENSE.md` for details.
 Run `list_dotfiles_functions` to get a list of available commands:
 
 ```bash
+b                                                                 # Run one command for multiple final arguments in parallel. Usage: b kubectl logs -f -- pod-1 pod-2
 clcd                                                              # cd into a directory and launch claude
 cleanup_ds                                                        # Recursively delete `.DS_Store` files under the current path
 confirm                                                           # Confirmation wrapper. Usage: confirm rm -rf /tmp/folder
@@ -162,6 +179,8 @@ targz                                                             # Create a .ta
 timer                                                             # Stopwatch to count execution time for a command. Usage example: timer ls -la
 title                                                             # Set terminal titles in OSX
 tsh                                                               # Open a tmux terminal inside an ssh session. Usage: tsh <hostname> {session_name}
+txa                                                               # Attach to a named tmux session using iTerm2 native tmux integration.
+txiterm                                                           # Attach to the default tmux session using iTerm2 native tmux integration.
 update_dotfiles                                                   # Update and install latest dotfiles version
 urlencode                                                         # URL-encode strings
 ```

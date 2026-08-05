@@ -1,9 +1,0 @@
-{
-  "description": "tmux role dependencies",
-  "commands": [
-    {
-      "name": "tmux",
-      "apt": ["tmux"]
-    }
-  ]
-}

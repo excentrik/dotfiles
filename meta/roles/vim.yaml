@@ -1,2 +1,5 @@
+- apt:
+    - vim
+
 - link:
     ~/.vimrc: home_files/.vimrc

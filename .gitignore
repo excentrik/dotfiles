@@ -1,6 +1,7 @@
-.claude/
-.copilot/
-.cursor/
+/.claude/
+/.copilot/
+/.cursor/
 .future-work/
 TODO.md
+TODO.local.md
 PLAN.md

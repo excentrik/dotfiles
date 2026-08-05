@@ -6,6 +6,9 @@ case $- in
       *) return;;
 esac
 
+emulate sh -c "source $HOME/.exports"
+emulate sh -c "source $HOME/.profile"
+
 #------------------------------
 # Zsh stuff
 #------------------------------
@@ -223,7 +226,16 @@ if [ -d "${HOME}/.volta" ]; then
   export VOLTA_HOME="$HOME/.volta"
   export PATH="$VOLTA_HOME/bin:$PATH"
 fi
-# Remove any duplicates from the path. It keeps the first element it finds
-PATH=$(echo ${PATH} | /usr/bin/awk -v RS=: -v ORS=: '!($0 in a) {a[$0]; print}')
-PATH="${PATH%:}"    # remove trailing colon
-export PATH
+
+# Keep shared PATH composition in ~/.path as the final PATH mutator.
+source "$HOME/.path"
+
+if command -v direnv >/dev/null 2>&1; then
+  eval "$(direnv hook zsh)"
+fi
+
+# Atuin (shell history) integrates natively with zsh via add-zsh-hook.
+# Keep this last so Atuin owns the Ctrl-R key binding; up-arrow stays native.
+if command -v atuin >/dev/null 2>&1; then
+  eval "$(atuin init zsh --disable-up-arrow)"
+fi

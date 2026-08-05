@@ -1,9 +1,0 @@
-{
-  "description": "Docker alias role dependencies",
-  "commands": [
-    {
-      "name": "docker",
-      "message": "Install Docker using the recommended instructions for this host before using Docker aliases."
-    }
-  ]
-}

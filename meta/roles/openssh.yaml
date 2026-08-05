@@ -1,0 +1,25 @@
+# Optional role: install Homebrew's openssh, which tracks upstream OpenSSH and
+# is typically 1-2 years ahead of the /usr/bin/ssh that Apple ships. Useful
+# when connecting to servers that have disabled older key-exchange algorithms,
+# cert types, or hardware-token-backed auth flows that Apple's bundled ssh
+# does not yet support.
+#
+# Not listed in any meta/hosts/*.yaml; install manually with:
+#   ./install-role openssh
+#
+# Once installed, /opt/homebrew/bin/ssh shadows /usr/bin/ssh because
+# home_files/.path puts the Homebrew prefix ahead of /usr/bin.
+- shell:
+  - command: |
+      case "$OSTYPE" in
+        darwin*) ;;
+        *)
+          echo "openssh role is macOS-only (uses Homebrew). On Linux, install"  >&2
+          echo "the newer openssh-client via your distro's package manager."    >&2
+          exit 1
+          ;;
+      esac
+    description: Require macOS
+
+- brew:
+    - openssh

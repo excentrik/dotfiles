@@ -1,9 +1,0 @@
-{
-  "description": "Oh My Zsh role dependencies",
-  "commands": [
-    {
-      "name": "zsh",
-      "apt": ["zsh"]
-    }
-  ]
-}

@@ -24,14 +24,6 @@ is_managed_gitconfig_link() {
     [ "${target}" = "${MANAGED_GITCONFIG}" ]
 }
 
-append_once() {
-    local file="$1"
-    local text="$2"
-
-    touch "${file}"
-    grep -q -F "${text}" "${file}" || printf "%s" "${text}" >> "${file}"
-}
-
 append_gitconfig_value_once() {
     local file="$1"
     local section="$2"
@@ -62,12 +54,10 @@ fi
 # Set ssh to use in git
 GIT_SSH_BIN="$(command -v ssh 2>/dev/null || true)"
 if [ -n "${GIT_SSH_BIN}" ]; then
-    TEXT=$(cat <<-END
-\n
-export GIT_SSH=${GIT_SSH_BIN}
-END
-)
-    append_once "${EXTRA}" "${TEXT}"
+    touch "${EXTRA}"
+    if ! grep -q -F "export GIT_SSH=${GIT_SSH_BIN}" "${EXTRA}"; then
+        printf '\nexport GIT_SSH=%s\n' "${GIT_SSH_BIN}" >> "${EXTRA}"
+    fi
 fi
 
 # Use osxkeychain in OSX

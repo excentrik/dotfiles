@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 
-# * ~/.path can be used to extend `$PATH`.
 # shellcheck source=.
-source "$HOME/.path"
 source "$HOME/.exports"
 source "$HOME/.profile"
 
@@ -12,7 +10,14 @@ case $- in
       *) return;;
 esac
 
-ulimit -n 1024
+# Raise the soft open-file-descriptor limit, capped at the hard limit
+__nofile_hard=$(ulimit -Hn)
+if [ "$__nofile_hard" = "unlimited" ] || { [ "$__nofile_hard" -ge 65536 ] 2>/dev/null; }; then
+    ulimit -Sn 65536
+elif [ -n "$__nofile_hard" ]; then
+    ulimit -Sn "$__nofile_hard"
+fi
+unset __nofile_hard
 
 # Case-insensitive globbing (used in pathname expansion)
 shopt -s nocaseglob;
@@ -61,7 +66,9 @@ if [ -d "${HOME}/.volta" ]; then
   export PATH="$VOLTA_HOME/bin:$PATH"
 fi
 
-# Remove any duplicates from the path. It keeps the first element it finds
-PATH=$(echo ${PATH} | /usr/bin/awk -v RS=: -v ORS=: '!($0 in a) {a[$0]; print}')
-PATH="${PATH%:}"    # remove trailing colon
-export PATH
+# Keep shared PATH composition in ~/.path as the final PATH mutator.
+source "$HOME/.path"
+
+if command -v direnv >/dev/null 2>&1; then
+  eval "$(direnv hook bash)"
+fi

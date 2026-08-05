@@ -165,7 +165,7 @@ PS1+="\[${white}\]] "
 PS1+="\$(_prompt_git \"\[${cyan}\]\" \"\[${blue}\]\")"; # Git repository details
 PS1+="\[${white}\]\$ \[${reset}\]"; # `$` (and reset color)
 
-export PS1;
-
+# Do not `export` PS1/PS2: prompt variables are shell-local. Exporting leaks
+# the bash prompt (with bash-only \u \h \w \[ \] escapes) into child shells
+# such as zsh, which renders those escapes literally.
 PS2="\[${yellow}\]→ \[${reset}\]";
-export PS2;

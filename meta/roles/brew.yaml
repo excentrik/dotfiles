@@ -6,18 +6,11 @@
      stderr: true
 
 - brew:
-    - coreutils     # Install GNU core utilities (those that come with OS X are outdated).
-    - findutils # Install GNU `find`, `locate`, `updatedb`, and `xargs`, `g`-prefixed.
-    - gnu-sed  # Install GNU `sed`
-    - wget # Install `wget`
-    - proctools # Install GNU version of `pgrep`, `pkill` and  `pfind`
-    - openssh # Install more recent version of ssh
-
-    # Install other useful binaries.
-    - imagemagick
-    - nmap
-    - bat
+    - coreutils # GNU core utilities; provides `gls` used by the `ll` alias in home_files/.aliases/common.sh
+    - gnu-sed   # GNU sed; macOS' BSD sed lacks `-r`, has different `-i` semantics, and rejects GNU-only patterns
+    - wget      # macOS does not ship wget; .wgetrc lives in home_files/
+    - bat       # Used by `alias cat='bat'` in home_files/.aliases/common.sh (guarded by command -v)
 
 - cask:
-    - google-chrome
     - vlc
+    - font-jetbrains-mono-nerd-font # Nerd-Font-patched JetBrains Mono for powerline/file-tree glyphs

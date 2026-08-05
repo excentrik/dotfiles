@@ -1,0 +1,5 @@
+yabai -m config layout float
+
+# Restore window layout when a display is added (e.g. plugging into a dock)
+# The helper debounces repeated events using private, validated process state.
+yabai -m signal --add event=display_added action="$HOME/bin/window-layout schedule-restore"

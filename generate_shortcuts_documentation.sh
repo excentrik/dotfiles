@@ -118,7 +118,8 @@ generate_command_list() {
     export PATH="${tmp_bin}"
     shopt -s expand_aliases
     # shellcheck disable=SC1091
-    source "${BASE_DIR}/home_files/.bash_aliases" >/dev/null
+    source "${BASE_DIR}/home_files/.profile" >/dev/null
+    load_aliases >/dev/null
     list_dotfiles_functions
   ) || rc=$?
 
