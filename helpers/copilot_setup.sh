@@ -72,6 +72,9 @@ PY
 install_default_file \
     "${BASE_DIR}/home_files/.copilot/settings.json" \
     "$HOME/.copilot/settings.json"
+install_default_file \
+    "${BASE_DIR}/home_files/.copilot/copilot-instructions.md" \
+    "$HOME/.copilot/copilot-instructions.md"
 ensure_experimental_default "$HOME/.copilot/settings.json"
 
 node_major_version() {

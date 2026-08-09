@@ -130,6 +130,8 @@ Do not commit Claude credentials, project/session history, generated skills, plu
 
 The `copilot` role copies shared GitHub Copilot CLI defaults from `home_files/.copilot/settings.json` into `~/.copilot/settings.json` only when the local file is missing or still points at the old repo-managed symlink. After installation the file is local and can be edited per host.
 
+The `copilot` role also copies `home_files/.copilot/copilot-instructions.md` into `~/.copilot/copilot-instructions.md` only when the local file is missing or still points at the old repo-managed symlink. Existing local instruction files are preserved.
+
 `helpers/copilot_setup.sh` ensures a Node.js 24 runtime for Copilot. If the current `node` is older than 24 (or missing), it installs the latest `v24.x` Node build to `~/.local/node-v24`, symlinks `node`/`npm`/`npx`/`corepack` into `~/.local/bin`, and then installs/updates `@github/copilot`.
 
 The `copilot` role enables experimental mode by default with `"experimental": true` in `~/.copilot/settings.json`. `helpers/copilot_setup.sh` adds that setting to existing local settings only when the key is missing, so an explicit local `"experimental": false` is preserved. The `copilot` role also links `home_files/bin/copilot` into `~/bin/copilot`, which is earlier on PATH than `~/.local/bin`; that wrapper preserves `--no-experimental` for one command and maps `DOTFILES_COPILOT_EXPERIMENTAL=0` to `--no-experimental`.
