@@ -17,6 +17,11 @@
 
 Install commands are mutating unless `--dry-run` is used. They create symlinks under `~` and may back up or overwrite real files. Before installing a role, check affected targets such as `ls -la ~/.bashrc` to avoid losing local customizations.
 
+## Collaboration and safety
+
+- Do not add `Co-authored-by` or other AI-attribution trailers to commits. Before pushing Copilot-created commits, verify that commit messages contain no AI-attribution trailers.
+- Never commit credentials or secret-bearing local files. Treat manifests, logs, absolute paths, and configuration provenance as privacy-sensitive.
+
 ## Architecture
 
 This is a Dotbot-based dotfiles repository with a host/role model. `dotbot`, `dotbot-brew`, `oh-my-zsh`, `tpm`, and zsh completions are git submodules. The root `./install` script detects the host from `$OSTYPE` plus Docker/WSL checks, updates submodules to recorded commits by default, runs `meta/base.yaml`, then reads `meta/hosts/<host>.yaml`, expands role-local `depends` directives, and applies each selected `meta/roles/<role>.yaml`. Extra role names passed after the host are dependency-expanded and applied after the host roles.
