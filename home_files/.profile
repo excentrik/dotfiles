@@ -18,3 +18,5 @@ function load_aliases() {
       unset file;
     fi
 }
+
+. "$HOME/.atuin/bin/env"

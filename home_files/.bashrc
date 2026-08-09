@@ -72,3 +72,10 @@ source "$HOME/.path"
 if command -v direnv >/dev/null 2>&1; then
   eval "$(direnv hook bash)"
 fi
+
+. "$HOME/.atuin/bin/env"
+
+[[ -f ~/.bash-preexec.sh ]] && source ~/.bash-preexec.sh
+if command -v atuin >/dev/null 2>&1; then
+  eval "$(atuin init bash --disable-up-arrow)"
+fi
