@@ -1,6 +1,9 @@
 - apt:
     - curl
 
+- shell:
+  - [mkdir -p ~/.copilot/instructions ~/bin ~/.aliases, Creating Copilot directories]
+
 - link:
     ~/.copilot/instructions/direct_fable.instructions.md: home_files/.copilot/instructions/direct_fable.instructions.md
     ~/bin/copilot: home_files/bin/copilot

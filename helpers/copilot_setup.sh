@@ -6,6 +6,13 @@ COPILOT_MIN_NODE_MAJOR="24"
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCAL_NODE_INSTALL_DIR="$HOME/.local/node-v${COPILOT_MIN_NODE_MAJOR}"
 LOCAL_NODE_BIN_DIR="$HOME/.local/bin"
+COPILOT_SKILLS=(
+    evidence-research
+    grill-with-docs
+    handoff
+    tdd
+    teach
+)
 
 install_default_file() {
     local source_path="$1"
@@ -76,6 +83,55 @@ install_default_file \
     "${BASE_DIR}/home_files/.copilot/copilot-instructions.md" \
     "$HOME/.copilot/copilot-instructions.md"
 ensure_experimental_default "$HOME/.copilot/settings.json"
+
+link_copilot_skills() {
+    local skill
+    local source_dir
+    local target_dir
+    local current_target
+    local target_entries
+
+    mkdir -p "$HOME/.copilot/skills"
+    for skill in "${COPILOT_SKILLS[@]}"; do
+        source_dir="${BASE_DIR}/home_files/.copilot/skills/${skill}"
+        target_dir="$HOME/.copilot/skills/${skill}"
+
+        if [ ! -d "${source_dir}" ]; then
+            echo "error: managed Copilot skill source is missing: ${source_dir}" >&2
+            return 1
+        fi
+
+        if [ -L "${target_dir}" ]; then
+            current_target="$(readlink "${target_dir}")"
+            if [ "${current_target}" = "${source_dir}" ]; then
+                echo "Copilot skill already linked: ${skill}"
+            else
+                echo "error: refusing to replace unrelated Copilot skill symlink: ${target_dir}" >&2
+                return 1
+            fi
+        elif [ -d "${target_dir}" ]; then
+            target_entries="$(find "${target_dir}" -mindepth 1 -maxdepth 1 -print | wc -l)"
+            if [ "${target_entries}" -eq 1 ] \
+                && [ -f "${target_dir}/SKILL.md" ] \
+                && cmp -s "${source_dir}/SKILL.md" "${target_dir}/SKILL.md"; then
+                rm -rf "${target_dir}"
+                ln -s "${source_dir}" "${target_dir}"
+                echo "Migrated managed Copilot skill copy to a symlink: ${target_dir}"
+            else
+                echo "error: refusing to replace an existing Copilot skill directory: ${target_dir}" >&2
+                return 1
+            fi
+        elif [ -e "${target_dir}" ]; then
+            echo "error: Copilot skill target is not a directory: ${target_dir}" >&2
+            return 1
+        else
+            ln -s "${source_dir}" "${target_dir}"
+            echo "Linked Copilot skill: ${skill}"
+        fi
+    done
+}
+
+link_copilot_skills
 
 node_major_version() {
     node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true

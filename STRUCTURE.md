@@ -132,11 +132,13 @@ The `copilot` role copies shared GitHub Copilot CLI defaults from `home_files/.c
 
 The `copilot` role also copies `home_files/.copilot/copilot-instructions.md` into `~/.copilot/copilot-instructions.md` only when the local file is missing or still points at the old repo-managed symlink. Existing local instruction files are preserved.
 
+The `copilot` role links the five repository-managed skills from `home_files/.copilot/skills/` into `~/.copilot/skills/`: `evidence-research`, `grill-with-docs`, `handoff`, `tdd`, and `teach`. Copilot discovers per-skill directory symlinks, so pulling dotfiles updates the managed skills immediately while unrelated personal skills remain separate. The helper migrates exact copies from the previous installation behavior and refuses ambiguous same-name directories or symlinks.
+
 `helpers/copilot_setup.sh` ensures a Node.js 24 runtime for Copilot. If the current `node` is older than 24 (or missing), it installs the latest `v24.x` Node build to `~/.local/node-v24`, symlinks `node`/`npm`/`npx`/`corepack` into `~/.local/bin`, and then installs/updates `@github/copilot`.
 
 The `copilot` role enables experimental mode by default with `"experimental": true` in `~/.copilot/settings.json`. `helpers/copilot_setup.sh` adds that setting to existing local settings only when the key is missing, so an explicit local `"experimental": false` is preserved. The `copilot` role also links `home_files/bin/copilot` into `~/bin/copilot`, which is earlier on PATH than `~/.local/bin`; that wrapper preserves `--no-experimental` for one command and maps `DOTFILES_COPILOT_EXPERIMENTAL=0` to `--no-experimental`.
 
-Only portable preferences and footer settings belong in the default Copilot file. Do not commit Copilot auth config, OAuth state, MCP config, command history, logs, session state, generated skills, plugin caches, installed plugin metadata, experiment assignment caches, local permissions, trusted folders, login/user state, or stores from `~/.copilot`.
+Only portable preferences, footer settings, and reviewed repository-managed skills belong in the default Copilot configuration. Do not commit Copilot auth config, OAuth state, MCP config, command history, logs, session state, unreviewed generated skills, plugin caches, installed plugin metadata, experiment assignment caches, local permissions, trusted folders, login/user state, or stores from `~/.copilot`.
 
 ## Role dependencies
 

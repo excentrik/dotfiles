@@ -19,6 +19,7 @@ Runs non-mutating validation checks:
   - Role dependency graph checks
   - Role dependency dry-run safety checks
   - Dotbot link target checks
+  - Copilot skill format checks
   - README generated command documentation drift checks
   - Dotbot dry-runs using a temporary HOME
 
@@ -436,6 +437,48 @@ if settings.get("experimental") is not True:
 PY
 }
 
+check_copilot_skills() {
+  status "Checking repository-managed Copilot skills"
+  local skills=(
+    evidence-research
+    grill-with-docs
+    handoff
+    tdd
+    teach
+  )
+  local skill
+  local skill_dir
+  local name
+  local description
+
+  for skill in "${skills[@]}"; do
+    skill_dir="${BASE_DIR}/home_files/.copilot/skills/${skill}"
+    if [ ! -f "${skill_dir}/SKILL.md" ]; then
+      echo "Missing Copilot skill file: ${skill_dir}/SKILL.md" >&2
+      return 1
+    fi
+
+    name="$(sed -n 's/^name: //p' "${skill_dir}/SKILL.md" | head -1)"
+    description="$(sed -n 's/^description: //p' "${skill_dir}/SKILL.md" | head -1)"
+    if [ "${name}" != "${skill}" ]; then
+      echo "Copilot skill name does not match its directory: ${skill_dir}" >&2
+      return 1
+    fi
+    if [ -z "${description}" ]; then
+      echo "Copilot skill has no description: ${skill_dir}/SKILL.md" >&2
+      return 1
+    fi
+    if ! grep -q '^## Workflow$' "${skill_dir}/SKILL.md"; then
+      echo "Copilot skill is missing its workflow section: ${skill_dir}/SKILL.md" >&2
+      return 1
+    fi
+    if ! grep -Eq '^## .*guardrails$' "${skill_dir}/SKILL.md"; then
+      echo "Copilot skill is missing its guardrails section: ${skill_dir}/SKILL.md" >&2
+      return 1
+    fi
+  done
+}
+
 check_copilot_setup_merges_experimental_default() {
   status "Checking Copilot setup merges experimental default"
   local tmp_home
@@ -505,6 +548,61 @@ if settings.get("experimental") is not False:
 PY
   then
     echo "Expected Copilot setup to preserve explicit experimental=false." >&2
+    rm -rf "${tmp_home}" "${tmp_bin}"
+    return 1
+  fi
+
+  rm -rf "${tmp_home}" "${tmp_bin}"
+}
+
+check_copilot_setup_links_skills() {
+  status "Checking Copilot setup links discoverable skills"
+  local tmp_home
+  local tmp_bin
+  local skill
+
+  tmp_home="$(mktemp -d)"
+  tmp_bin="$(mktemp -d)"
+  mkdir -p "${tmp_home}/.copilot/skills/local-skill"
+  printf '%s\n' \
+    '---' \
+    'name: local-skill' \
+    'description: A user-owned test skill.' \
+    '---' \
+    '# Local skill' \
+    > "${tmp_home}/.copilot/skills/local-skill/SKILL.md"
+
+  cat > "${tmp_bin}/copilot" <<'SH'
+#!/usr/bin/env bash
+case "$1" in
+  --version) printf '%s\n' 'GitHub Copilot CLI 1.0.60' ;;
+  *) printf '%s\n' "$*" ;;
+esac
+SH
+  chmod +x "${tmp_bin}/copilot"
+
+  if ! HOME="${tmp_home}" PATH="${tmp_bin}:${PATH}" helpers/copilot_setup.sh >/dev/null 2>&1; then
+    echo "Expected Copilot setup to install repository-managed skills." >&2
+    rm -rf "${tmp_home}" "${tmp_bin}"
+    return 1
+  fi
+
+  for skill in evidence-research grill-with-docs handoff tdd teach; do
+    if [ ! -L "${tmp_home}/.copilot/skills/${skill}" ]; then
+      echo "Expected ${skill} to be installed as a skill symlink." >&2
+      rm -rf "${tmp_home}" "${tmp_bin}"
+      return 1
+    fi
+    if [ "$(readlink "${tmp_home}/.copilot/skills/${skill}")" != \
+      "${BASE_DIR}/home_files/.copilot/skills/${skill}" ]; then
+      echo "Copilot skill symlink points to the wrong source: ${skill}" >&2
+      rm -rf "${tmp_home}" "${tmp_bin}"
+      return 1
+    fi
+  done
+
+  if [ ! -f "${tmp_home}/.copilot/skills/local-skill/SKILL.md" ]; then
+    echo "Copilot setup removed an unrelated personal skill." >&2
     rm -rf "${tmp_home}" "${tmp_bin}"
     return 1
   fi
@@ -759,7 +857,9 @@ main() {
   check_role_dependencies
   check_role_dependency_failures
   check_copilot_settings_enable_experimental
+  check_copilot_skills
   check_copilot_setup_merges_experimental_default
+  check_copilot_setup_links_skills
   check_copilot_wrapper_supports_experimental_opt_out
   check_tmux_setup_repairs_broken_tpm_link
   check_claude_setup_merges_safe_defaults
