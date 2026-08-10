@@ -1,0 +1,8 @@
+# Require repository-owner review for Copilot policy and agent behavior changes.
+# Repository settings must require code-owner approval for this protection to enforce.
+/.github/** @excentrik
+/AGENTS.md @excentrik
+/CLAUDE.md @excentrik
+/home_files/.copilot/** @excentrik
+/helpers/copilot_setup.sh @excentrik
+/meta/roles/copilot.yaml @excentrik
