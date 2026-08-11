@@ -188,6 +188,7 @@ check_bash_syntax() {
     generate_shortcuts_documentation.sh
     helpers/*.sh
     home_files/bin/copilot
+    home_files/bin/mosh-tmux-session
     home_files/.bash_profile
     home_files/.bashrc
     home_files/.bash_aliases
@@ -709,6 +710,55 @@ SH
   rm -rf "${tmp_home}" "${tmp_bin}"
 }
 
+check_mosh_tmux_session() {
+  status "Checking managed Mosh tmux startup"
+  local tmp_bin
+  local output
+
+  tmp_bin="$(mktemp -d)"
+  cat > "${tmp_bin}/tmux" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*"
+SH
+  chmod +x "${tmp_bin}/tmux"
+
+  output="$(
+    PATH="${tmp_bin}:/usr/bin:/bin" \
+    MOSH_TMUX_SESSION= \
+    USER="test-user" \
+    home_files/bin/mosh-tmux-session
+  )"
+  if [ "${output}" != "new-session -A -s test-user" ]; then
+    echo "Expected managed Mosh startup to attach to the user session; got: ${output}" >&2
+    rm -rf "${tmp_bin}"
+    return 1
+  fi
+
+  output="$(
+    PATH="${tmp_bin}:/usr/bin:/bin" \
+    MOSH_TMUX_SESSION=" team session " \
+    home_files/bin/mosh-tmux-session
+  )"
+  if [ "${output}" != "new-session -A -s team_session" ]; then
+    echo "Expected managed Mosh startup to sanitize the configured session; got: ${output}" >&2
+    rm -rf "${tmp_bin}"
+    return 1
+  fi
+
+  if grep -q '\.local/bin/mosh-tmux-session' home_files/.bashrc; then
+    echo "Bash startup must not execute an unmanaged Mosh helper." >&2
+    rm -rf "${tmp_bin}"
+    return 1
+  fi
+  if ! grep -q '"$HOME/bin/mosh-tmux-session"' home_files/.bashrc; then
+    echo "Bash startup does not reference the managed Mosh helper." >&2
+    rm -rf "${tmp_bin}"
+    return 1
+  fi
+
+  rm -rf "${tmp_bin}"
+}
+
 check_claude_setup_merges_safe_defaults() {
   status "Checking Claude setup merges safe defaults"
   local tmp_home
@@ -862,6 +912,7 @@ main() {
   check_copilot_setup_links_skills
   check_copilot_wrapper_supports_experimental_opt_out
   check_tmux_setup_repairs_broken_tpm_link
+  check_mosh_tmux_session
   check_claude_setup_merges_safe_defaults
   configs=()
   while IFS= read -r config; do

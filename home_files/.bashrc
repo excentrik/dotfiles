@@ -21,8 +21,9 @@ unset __nofile_hard
 
 # Termius Android has no startup-command field for Mosh.
 if [[ -z ${TMUX:-} ]] &&
-   [[ $(ps -o comm= -p "$PPID" 2>/dev/null) == mosh-server ]]; then
-  "$HOME/.local/bin/mosh-tmux-session"
+   [[ $(ps -o comm= -p "$PPID" 2>/dev/null) == mosh-server ]] &&
+   [[ -x "$HOME/bin/mosh-tmux-session" ]]; then
+  "$HOME/bin/mosh-tmux-session"
 fi
 
 # Case-insensitive globbing (used in pathname expansion)
