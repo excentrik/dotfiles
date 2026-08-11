@@ -6,6 +6,7 @@
 
 - link:
     ~/.tmux.conf: home_files/.tmux.conf
+    ~/bin/mosh-tmux-session: home_files/bin/mosh-tmux-session
     ~/bin/tmux-session: home_files/bin/tmux-session
 
 - shell:

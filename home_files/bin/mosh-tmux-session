@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "mosh-tmux-session requires tmux to be installed." >&2
+  exit 1
+fi
+
+raw_session="${MOSH_TMUX_SESSION:-${USER:-mosh}}"
+session="$(printf '%s' "$raw_session" | tr -c '[:alnum:]_.-' '_' | sed 's/^_*//; s/_*$//')"
+
+if [ -z "$session" ]; then
+  session="mosh"
+fi
+
+exec tmux new-session -A -s "$session"
