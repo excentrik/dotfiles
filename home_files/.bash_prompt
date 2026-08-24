@@ -143,6 +143,21 @@ else
 	hostStyle="${green}";
 fi;
 
+# Accept only an ASCII hostname-like value: labels are 1-63 alphanumeric or
+# hyphen characters, labels start and end alphanumeric, and the full token is
+# at most 253 characters. Invalid values keep Bash's built-in \h behavior.
+_prompt_host_override_is_safe() {
+	local value="$1";
+
+	[ -n "${value}" ] && [ "${#value}" -le 253 ] &&
+		[[ "${value}" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$ ]];
+}
+
+_PROMPT_HOST='\h';
+if _prompt_host_override_is_safe "${DOTFILES_PROMPT_HOST:-}"; then
+	_PROMPT_HOST="${DOTFILES_PROMPT_HOST}";
+fi;
+
 # Set the terminal title and prompt.
 PS1=""
 # PS1+="\[\033]0;\W\007\]"; # working directory base name
@@ -158,7 +173,7 @@ PS1=""
 PS1+="["
 PS1+="\[${userStyle}\]\u"; # username
 PS1+="\[${white}\]@";
-PS1+="\[${hostStyle}\]\h"; # host
+PS1+="\[${hostStyle}\]${_PROMPT_HOST}"; # host
 PS1+="\[${white}\]:";
 PS1+="\[${purple}\]\w"; # working directory full path
 PS1+="\[${white}\]] "

@@ -1,3 +1,8 @@
+# The optional Claude role pulls in the public Bun role so Bun-based Claude
+# extensions and tooling can run without a separate setup.
+- depends:
+    - bun
+
 - apt:
     - nodejs
     - npm

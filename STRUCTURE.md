@@ -9,6 +9,7 @@ This document describes how the repo is organized and how to extend it. For inst
 | **meta/** | Dotbot configs: `base.yaml` (always run) and per-host/role YAMLs |
 | **meta/hosts/** | Host profiles: list of role names for that environment (wsl, unix, osx, docker) |
 | **meta/roles/** | One YAML per “package” (bash, vim, git, docker, tmux, editor, python, brew, etc.) |
+| **extensions/<id>/** | Optional self-contained extension roots with host profiles, roles, and helpers |
 | **home_files/** | Source of truth for files linked into `~` (e.g. `.bashrc`, `.aliases/*.sh`, `.vimrc`) |
 | **helpers/** | Setup scripts run by Dotbot when roles are installed |
 | **system/** | OS-specific scripts (Homebrew list, OS X defaults) |
@@ -40,6 +41,74 @@ Azure Linux/CBL-Mariner VMs and other non-WSL Linux hosts should use the existin
 4. Add the role name to the appropriate host file(s) in `meta/hosts/`, or add it to another role's `depends` directive if it should be installed automatically before that role.
 
 Do not add a Dotbot copy plugin without a concrete need. Repo-managed files should be linked from `home_files/`, while generated or machine-local files should be created by idempotent helpers.
+
+## Extensions
+
+An extension lives in `extensions/<id>/` and has an `extension.conf` containing
+`id=<id>` plus an optional comma-separated `hosts=<host>[,<host>...]` entry.
+The directory ID and manifest ID must match. Extension IDs, host IDs, and role
+names use `[a-z0-9][a-z0-9_-]*`.
+
+Primary extension hosts are defined by `meta/hosts/<host>.yaml` and require
+matching `meta/host-families/<host>` metadata whose value is one of the core
+family identifiers `osx`, `unix`, `wsl`, or `docker`. Core host addons live at
+`meta/host-addons/<core-host>.yaml`; constrained `DOTFILES_*` defaults live at
+`meta/host-env/<host>.env` and never replace caller-provided values. For a core
+host, extension defaults are applied in extension-ID order, so the first
+extension providing an unset variable wins.
+`meta/role-addons/<role>.yaml` runs after its base role. Addons are ordered by
+extension ID and cannot declare dependencies. Addon YAML is parsed with the
+vendored safe YAML loader; any mapping key named `depends` is rejected, while
+comments and ordinary string values containing that word are allowed. Core and
+extension role roots share dependency expansion, and duplicate role names are
+rejected.
+
+Host profiles and host addons use only constrained list entries such as
+`- role: ~`; comments and blank lines are allowed, while blank values,
+malformed names, and other YAML shapes are rejected. Passive `home_files/`
+symlinks must resolve to contained targets; dangling symlinks fail closed.
+
+The optional `detect-host` must be executable and may claim at most one
+declared host. Silence or a successful no-claim falls back to core detection;
+nonzero exit, stderr, malformed output, multiple claims, or an undeclared
+claim fails. Host-family metadata is always explicit for primary extension
+hosts.
+
+Active content includes `extension.conf`, `meta/`, `helpers/`, `detect-host`,
+`validate.sh`, and Copilot hooks. It must be a contained regular file and match
+`HEAD` in normal mode. `DOTFILES_EXTENSIONS_MODE=development` permits staged
+active files only when the worktree is clean for those paths. `home_files/` is
+passive content: it must be contained but need not be tracked.
+
+Extensions are ordinary directories inside the main repository. Nested
+repositories and submodules are unsupported for active extension content
+because active-code integrity is checked against the main repository's `HEAD`.
+
+An optional executable `validate.sh` is run only by `helpers/validate.sh`, in
+extension-ID order. Silent exit zero passes; nonzero exit or any stderr fails.
+It is not run during ordinary installation.
+
+When the `copilot` role is selected, the optional
+`helpers/copilot-prerequisite` hook runs in extension-ID order with
+`DOTFILES_EXTENSION_ID` and `DOTFILES_EXTENSION_ROOT` set. Silent output or
+`permit` allows the role, `skip` omits it, and `fail`, nonzero exit, stderr, or
+malformed output fails closed.
+
+Extension detectors and Copilot prerequisite hooks execute during installer
+dry-runs because they determine selected behavior. Dotbot actions and submodule
+updates remain dry-run and non-mutating. These active files are
+integrity-checked and should be side-effect-free. Extension validators run only
+through validation, not ordinary installation.
+
+Set `DOTFILES_EXTENSIONS=0` to disable discovery. Zero-argument `./install`
+then requires an explicit core host. `DOTFILES_PROMPT_HOST` accepts a
+hostname-like ASCII token up to 253 characters with valid 1–63 character
+labels; invalid values use Bash's normal hostname expansion. Without an
+`extensions/` directory, the baseline installation behavior is unchanged.
+
+The optional `claude` role depends on the public `bun` role, so Bun-based Claude
+extensions and tooling can run without a separate setup. Bun is also selectable
+directly through its own role.
 
 ## Scripts
 
@@ -78,6 +147,11 @@ zsh and Oh My Zsh enable [atuin](https://atuin.sh) shell history with `atuin ini
 
 ### helpers/
 
+`helpers/extensions.sh` and `helpers/hosts.sh` are co-required modules and
+must both be sourced before `extensions_initialize`. The host module uses the
+extension module's foundational arrays and primitives; extension
+initialization calls the host module's functions.
+
 | Script | Purpose |
 |--------|---------|
 | aliases_cleanup.sh | Removes broken symlinks under `~/.aliases` left by renamed/deleted alias files |
@@ -88,10 +162,11 @@ zsh and Oh My Zsh enable [atuin](https://atuin.sh) shell history with `atuin ini
 | brew_setup.sh | Homebrew initialization (role: brew, OSX) |
 | xcode_cli_setup.sh | Xcode Command Line Tools setup only; does not install full Xcode (role: xcode_cli, OSX). Headless/CI macOS hosts must preinstall CLT (e.g. via MDM or `xcode-select --install` in a setup step) before running `./install`; the helper deliberately skips its interactive GUI prompt when stdin is not a TTY or `DOTFILES_NO_INTERACTIVE` is set. |
 | copilot_setup.sh | Ensures Node.js 24+ (installs user-local Node 24 when needed) and installs/updates GitHub Copilot CLI with npm |
+| hosts.sh | Generic host family, profile, detection, environment, and role collection helpers; source after `extensions.sh` |
 | ohmyzsh_setup.sh | Copies `~/.oh-my-zsh` from the checked-out Oh My Zsh submodule when safe (role: ohmyzsh) |
 | node_setup.sh | Node environment setup (if used by a role) |
 | osx_setup.sh | OS X–specific setup (if used by a role) |
-| validate.sh | Non-mutating validation checks for scripts, role links, and Dotbot dry-runs |
+| validate.sh | Non-mutating validation checks for scripts, extensions, role links, and Dotbot dry-runs; `--extensions` selects extension-only checks |
 | role_dependencies.sh | Shared role dependency expansion and graph validation used by `install`, `install-role`, and validation |
 
 ### system/
@@ -175,7 +250,12 @@ Use the local `apt` directive for Linux-family package dependencies:
 
 `./install` and `./install-role` add host-specific directive exclusions before invoking Dotbot: macOS skips `apt`, while Linux/WSL/docker skip Homebrew directives. On Linux-family hosts, the `apt` directive uses apt/dpkg when available and falls back to yum/rpm for RPM-based hosts such as Azure Linux/CBL-Mariner. Normal Linux-family installs report missing packages without installing anything. `--dry-run` prints the package-manager commands instead of running them.
 
-Keep default package roles conservative. Tools such as `git-lfs`, `pipx`, `uv`, Bun, and developer utilities like `rg`, `fd`, `fzf`, `bat`, `ncdu`, and `yq` remain manual or opt-in unless a dedicated role is added later. Tools such as `kubectl`, Docker, Java, Kerberos tooling, and Volta are not managed by dotfiles package roles.
+Keep default package roles conservative. Tools such as `git-lfs`, `pipx`, `uv`,
+and developer utilities like `rg`, `fd`, `fzf`, `bat`, `ncdu`, and `yq` remain
+manual or opt-in unless a dedicated role is added later. Bun remains optional
+and selectable directly through its own role, and the `claude` role also pulls
+it in automatically. Tools such as `kubectl`, Docker, Java, Kerberos tooling,
+and Volta are not managed by dotfiles package roles.
 
 ## Link safety and forced targets
 
