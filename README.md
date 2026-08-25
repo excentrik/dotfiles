@@ -61,6 +61,85 @@ On Linux/WSL hosts, installs report missing packages from role-local `apt` secti
 
 When combined with `--dry-run`, bootstrap prints the package-manager commands it would run without installing packages. macOS uses role-local Homebrew directives (`tap`, `brew`, and `cask`) instead.
 
+## Extensions
+
+Optional extensions live under `extensions/<id>/`. Each extension has an
+`extension.conf` containing `id=<id>` and, when it provides primary host
+profiles, an optional comma-separated `hosts=<host>[,<host>...]` entry. The
+directory name and manifest ID must match. Host and role identifiers, including
+extension IDs, must match `[a-z0-9][a-z0-9_-]*`.
+
+An extension may provide `meta/hosts/<host>.yaml` profiles and matching
+`meta/host-families/<host>` metadata. Every primary extension host needs an
+explicit family from the core vocabulary `osx`, `unix`, `wsl`, or `docker`;
+core hosts use the equivalent files under `meta/`. Host profiles and core-host
+addons use constrained entries such as `- role: ~`; comments and blank lines
+are allowed, but other YAML shapes are rejected. A host detector at
+`detect-host` is optional. A detector that exits successfully and
+prints nothing yields to core detection. A nonzero exit, stderr, malformed
+output, multiple claims, or an undeclared host claim is an error. A detector
+must make at most one declared host claim.
+
+Active extension content consists of `extension.conf`, metadata, helpers,
+detectors, validators, and Copilot hooks. It must be regular, contained within
+the extension root, and match `HEAD` in normal mode. Set
+`DOTFILES_EXTENSIONS_MODE=development` to accept staged active code, provided
+the worktree is clean for those paths and the files are present in the index.
+`home_files/` is passive content: it must remain contained, but may be
+untracked. Dangling symlinks are rejected because their containment cannot be
+proven. Set `DOTFILES_EXTENSIONS=0` to disable discovery; then
+zero-argument `./install` requires an explicit core host, and extension hosts
+are unavailable.
+
+Extensions are ordinary directories inside the main repository. Nested
+repositories and submodules are unsupported for active extension content
+because the active-code integrity check must match the main repository's
+`HEAD`.
+
+Selected extension hosts can supply core host addons under
+`meta/host-addons/<core-host>.yaml`. Host environment defaults use constrained
+`DOTFILES_*` assignments and never override values supplied by the caller. For
+a core host, active extensions apply defaults in extension-ID order; when
+extensions provide the same unset variable, the first extension's value wins.
+Role addons run after their base role in extension-ID order and cannot declare
+dependencies. Addon YAML is parsed with the vendored safe YAML loader, and any
+mapping key named `depends` is rejected; comments and ordinary string values
+containing that word are allowed.
+
+Core and extension roles share dependency expansion across roots. Duplicate
+role names are rejected.
+
+An optional extension-root `validate.sh` is active code. It must be a contained,
+executable regular file that satisfies the active-code integrity rule.
+`helpers/validate.sh` runs validators in extension-ID order; silent exit zero
+passes, while nonzero exit or any stderr is a visible validation failure.
+Ordinary installs do not run extension validators.
+
+When the `copilot` role is selected, extensions may provide the executable
+`extensions/<id>/helpers/copilot-prerequisite` hook. Hooks run in extension-ID
+order with `DOTFILES_EXTENSION_ID` and `DOTFILES_EXTENSION_ROOT` set. Silent
+output or `permit` allows Copilot, `skip` omits the core role, and `fail`,
+nonzero exit, stderr, or malformed output fails closed.
+
+Extension detectors and Copilot prerequisite hooks execute during installer
+dry-runs because they determine host and role selection. Dotbot actions and
+submodule updates remain dry-run and non-mutating. These active files are
+integrity-checked and should be side-effect-free. Extension validators run only
+through `helpers/validate.sh`, not during ordinary installation.
+
+`DOTFILES_PROMPT_HOST` accepts an ASCII hostname-like value up to 253
+characters, with 1-63 character labels that start and end alphanumeric.
+Invalid values fall back to Bash's built-in hostname expansion.
+
+With no `extensions/` directory, the baseline host and role behavior is
+unchanged. Test extension-enabled checkouts with isolated temporary `HOME`
+directories and `--dry-run --exit-on-failure`; never use a real home for
+validation.
+
+The optional `claude` role depends on the public `bun` role, so Bun-based Claude
+extensions and tooling can run without a separate setup. Bun is also selectable
+directly through its own role.
+
 The macOS host installs and selects **Xcode Command Line Tools only** via the `xcode_cli` role. It does not install full Xcode.
 
 The `tmux` role expects tmux >= 3.2 for the full configuration. tmux >= 3.3 is recommended for passthrough support used by OSC 52/OSC 8 and iTerm2 image protocol workflows; older versions skip guarded features.
@@ -96,6 +175,8 @@ By default, validation checks Linux/WSL-oriented hosts (`unix`, `wsl`, and `dock
 ```bash
 ~/.dotfiles$ helpers/validate.sh --all-roles
 ```
+
+Use `helpers/validate.sh --extensions` for extension-only checks.
 
 Validation also checks that the generated "Commands available" section is up to date. If that check fails, regenerate it with `./generate_shortcuts_documentation.sh` instead of editing the generated section manually.
 

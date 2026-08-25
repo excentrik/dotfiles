@@ -81,13 +81,13 @@ create_command_doc_path() {
 
   mkdir -p "${bin_dir}"
 
-  for name in "${real_commands[@]}"; do
+  for name in "${real_commands[@]+"${real_commands[@]}"}"; do
     link_if_available "${bin_dir}" "${name}"
   done
 
   local true_path
   true_path="$(type -P true)"
-  for name in "${system_command_stubs[@]}"; do
+  for name in "${system_command_stubs[@]+"${system_command_stubs[@]}"}"; do
     ln -s "${true_path}" "${bin_dir}/${name}"
   done
 }

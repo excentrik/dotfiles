@@ -15,28 +15,7 @@ DOTBOT_BIN="bin/dotbot"
 
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${BASE_DIR}"
-source helpers/role_dependencies.sh
-
-detect_host() {
-  case "$OSTYPE" in
-    darwin*)
-      echo "osx"
-      ;;
-    linux*)
-      if grep docker /proc/1/cgroup -qa; then
-        echo "docker"
-      elif grep -qE "(Microsoft|WSL)" /proc/version &> /dev/null; then
-        echo "wsl"
-      else
-        echo "unix"
-      fi
-      ;;
-    *)
-      echo "unknown platform: $OSTYPE. Aborting" >&2
-      return 1
-      ;;
-  esac
-}
+source "${BASE_DIR}/helpers/submodules.sh"
 
 parse_dotbot_args() {
   while [ "$#" -gt 0 ]; do
@@ -87,76 +66,10 @@ parse_dotbot_args() {
   done
 }
 
-has_dry_run() {
-  local arg
-  for arg in "$@"; do
-    case "${arg}" in
-      --dry-run|-n)
-        return 0
-        ;;
-    esac
-  done
-  return 1
-}
-
-is_checked_out_submodule() {
-  local path="$1"
-  local superproject
-
-  [ -d "${path}" ] || return 1
-
-  superproject="$(git -C "${path}" rev-parse --show-superproject-working-tree 2> /dev/null || true)"
-  [ -n "${superproject}" ] || return 1
-
-  [ "$(cd "${superproject}" && pwd)" = "${BASE_DIR}" ]
-}
-
-build_submodule_backup_path() {
-  local source_path="$1"
-  local timestamp="$2"
-  local candidate="${source_path}.pre-submodule-backup.${timestamp}"
-  local counter=1
-
-  while [ -e "${candidate}" ]; do
-    candidate="${source_path}.pre-submodule-backup.${timestamp}.${counter}"
-    counter=$((counter + 1))
-  done
-
-  printf '%s' "${candidate}"
-}
-
-prepare_submodule_paths() {
-  local submodule_paths
-  local timestamp
-  local entry
-  local path
-  local backup_path
-
-  if ! submodule_paths="$(git config --file .gitmodules --get-regexp '^submodule\..*\.path$' 2> /dev/null)"; then
-    return 0
-  fi
-
-  timestamp="$(date +%Y%m%d%H%M%S)"
-  while IFS= read -r entry; do
-    path="${entry#* }"
-    [ -n "${path}" ] || continue
-    [ -e "${path}" ] || continue
-
-    if is_checked_out_submodule "${path}"; then
-      continue
-    fi
-
-    backup_path="$(build_submodule_backup_path "${path}" "${timestamp}")"
-    echo "Found pre-existing content at ${path}; moving it to ${backup_path} (backup only)"
-    echo "To restore it later: mv '${backup_path}' '${path}'"
-    mv "${path}" "${backup_path}"
-  done <<< "${submodule_paths}"
-}
-
 add_unique_skip() {
   local directive="$1"
   local existing
-  for existing in "${DOTBOT_EXCEPT[@]}"; do
+  for existing in "${DOTBOT_EXCEPT[@]+"${DOTBOT_EXCEPT[@]}"}"; do
     if [ "${existing}" = "${directive}" ]; then
       return 0
     fi
@@ -164,25 +77,10 @@ add_unique_skip() {
   DOTBOT_EXCEPT+=("${directive}")
 }
 
-add_host_directive_exclusions() {
-  case "${_ENV}" in
-    osx)
-      add_unique_skip apt
-      ;;
-    unix|wsl|docker)
-      add_unique_skip tap
-      add_unique_skip brew
-      add_unique_skip cask
-      add_unique_skip brewfile
-      add_unique_skip services
-      ;;
-  esac
-}
-
 build_dotbot_args() {
-  EFFECTIVE_DOTBOT_ARGS=("${DOTBOT_ARGS[@]}")
+  EFFECTIVE_DOTBOT_ARGS=("${DOTBOT_ARGS[@]+"${DOTBOT_ARGS[@]}"}")
   if [ "${#DOTBOT_EXCEPT[@]}" -gt 0 ]; then
-    EFFECTIVE_DOTBOT_ARGS+=(--except "${DOTBOT_EXCEPT[@]}")
+    EFFECTIVE_DOTBOT_ARGS+=(--except "${DOTBOT_EXCEPT[@]+"${DOTBOT_EXCEPT[@]}"}")
   fi
 }
 
@@ -207,16 +105,11 @@ validate_role_exclusion() {
     return 1
   fi
 }
+EXPLICIT_HOST=0
 if [ "$#" -gt 0 ] && [[ "$1" != -* ]]; then
   _ENV="$1"
+  EXPLICIT_HOST=1
   shift
-else
-  _ENV="$(detect_host)"
-fi
-
-if [ ! -f "${META_DIR}/${PROFILES_DIR}/${_ENV}${CONFIG_SUFFIX}" ]; then
-  echo "Host type ${_ENV} is not supported."
-  exit 1
 fi
 
 CONFIGS=()
@@ -226,46 +119,162 @@ EXTRA_ROLES=()
 DOTBOT_ARGS=()
 DOTBOT_EXCEPT=()
 EFFECTIVE_DOTBOT_ARGS=()
+HOST_ROLE_OUTPUT=""
+ADDON_OUTPUT=""
+DIRECTIVE_OUTPUT=""
+ADDON_CONFIGS=()
+RUN_CONFIGS=()
+ROLE_CONFIGS=()
+ROLE_CONFIG_ROOTS=()
+ROLE_ADDON_OUTPUTS=()
+ROLE_ADDON_ROOT_OUTPUTS=()
 
 parse_dotbot_args "$@"
-add_host_directive_exclusions
-build_dotbot_args
-
-echo "Installing dotfiles for host type ${_ENV}"
-if has_dry_run "${EFFECTIVE_DOTBOT_ARGS[@]}"; then
-  echo "Dry-run requested; skipping submodule update"
-else
-  submodule_args=(--init --recursive --force)
-  if [ "${DOTFILES_UPDATE_SUBMODULES:-}" = "1" ]; then
-    submodule_args+=(--remote)
-    echo "Updating submodules from upstream remotes"
-  else
-    echo "Updating submodules to recorded commits"
-  fi
-
-  prepare_submodule_paths
-  if ! git submodule update "${submodule_args[@]}"; then
-    exit 1
-  fi
+if ! dotfiles_initialize_submodules "${DOTBOT_ARGS[@]+"${DOTBOT_ARGS[@]}"}"; then
+  exit 1
 fi
 
-while IFS= read -r config; do
-  config=${config#- }
-  config=${config%%:*}
-  [ -n "${config}" ] && CONFIGS+=("${config}")
-done < "${META_DIR}/${PROFILES_DIR}/${_ENV}${CONFIG_SUFFIX}"
+# Load both co-required extension and host modules before initialization.
+source "${BASE_DIR}/helpers/extensions.sh"
+source "${BASE_DIR}/helpers/hosts.sh"
+source "${BASE_DIR}/helpers/role_dependencies.sh"
 
-if ! role_deps_expand_roles "${CONFIGS[@]}" "${EXTRA_ROLES[@]}"; then
+if ! extensions_initialize; then
+  exit 1
+fi
+
+if [ "${EXPLICIT_HOST}" -eq 1 ]; then
+  extensions_resolve_host "${_ENV}" || exit 1
+else
+  if [ "${EXTENSIONS_ENABLED}" -eq 0 ]; then
+    echo "error: extensions are disabled; zero-argument ./install requires an explicit core host." >&2
+    exit 1
+  fi
+  if extensions_detect_host; then
+    detector_status=0
+  else
+    detector_status=$?
+  fi
+  case "${detector_status}" in
+    0)
+      _ENV="${EXTENSION_DETECTED_HOST}"
+      ;;
+    1)
+      _ENV="$(extensions_detect_core_host)"
+      ;;
+    *)
+      exit 1
+      ;;
+  esac
+  extensions_resolve_host "${_ENV}" || exit 1
+fi
+_HOST_FAMILY="${EXTENSION_SELECTED_FAMILY}"
+extensions_apply_host_env "${_ENV}" || exit 1
+
+if ! DIRECTIVE_OUTPUT="$(extensions_host_directive_exclusions "${_HOST_FAMILY}")"; then
+  echo "error: host directive exclusion collection failed." >&2
+  exit 1
+fi
+while IFS= read -r directive; do
+  [ -n "${directive}" ] && add_unique_skip "${directive}"
+done <<EOF
+${DIRECTIVE_OUTPUT}
+EOF
+build_dotbot_args
+
+extensions_configure_role_dependencies
+if ! HOST_ROLE_OUTPUT="$(extensions_collect_host_roles "${_ENV}")"; then
+  echo "error: host role collection failed." >&2
+  exit 1
+fi
+if [ -n "${HOST_ROLE_OUTPUT}" ]; then
+  while IFS= read -r config; do
+    [ -n "${config}" ] && CONFIGS+=("${config}")
+  done <<EOF
+${HOST_ROLE_OUTPUT}
+EOF
+fi
+if ! role_deps_expand_roles "${CONFIGS[@]+"${CONFIGS[@]}"}" "${EXTRA_ROLES[@]+"${EXTRA_ROLES[@]}"}"; then
   echo "error: role dependency resolution failed." >&2
   exit 1
 fi
-validate_role_exclusion "${EXPANDED_ROLES[@]}"
+validate_role_exclusion "${EXPANDED_ROLES[@]+"${EXPANDED_ROLES[@]}"}"
+extensions_run_copilot_prerequisite_hooks || exit 1
+
+for config in "${EXPANDED_ROLES[@]+"${EXPANDED_ROLES[@]}"}"; do
+  if [ "${config}" = "copilot" ] && [ "${EXTENSIONS_COPILOT_SKIP:-0}" -eq 1 ]; then
+    echo "Skipping copilot role per extension prerequisite policy"
+    continue
+  fi
+  if ! role_config="$(extensions_resolve_role_config "${config}")"; then
+    echo "error: role config resolution failed for '${config}'." >&2
+    exit 1
+  fi
+  if ! role_root="$(extensions_role_config_root "${role_config}")"; then
+    echo "error: role config root resolution failed for '${config}'." >&2
+    exit 1
+  fi
+  if ! ADDON_OUTPUT="$(extensions_resolve_role_addons "${config}")"; then
+    echo "error: role addon resolution failed for '${config}'." >&2
+    exit 1
+  fi
+  addon_root_output=""
+  if [ -n "${ADDON_OUTPUT}" ]; then
+    while IFS= read -r addon_config; do
+      [ -n "${addon_config}" ] || continue
+      if ! addon_root="$(extensions_role_addon_root "${addon_config}")"; then
+        echo "error: role addon root resolution failed for '${config}'." >&2
+        exit 1
+      fi
+      addon_root_output="${addon_root_output}${addon_root}"$'\n'
+    done <<EOF
+${ADDON_OUTPUT}
+EOF
+  fi
+  RUN_CONFIGS+=("${config}")
+  ROLE_CONFIGS+=("${role_config}")
+  ROLE_CONFIG_ROOTS+=("${role_root}")
+  ROLE_ADDON_OUTPUTS+=("${ADDON_OUTPUT}")
+  ROLE_ADDON_ROOT_OUTPUTS+=("${addon_root_output}")
+done
+
+echo "Installing dotfiles for host type ${_ENV}"
 
 _dotbot=("${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${BASE_DIR}" --plugin dotbot-brew --plugin dotbot-apt --plugin dotbot-role-deps)
 
-"${_dotbot[@]}" -c "${META_DIR}/${BASE_CONFIG}${CONFIG_SUFFIX}" "${EFFECTIVE_DOTBOT_ARGS[@]}"
+"${_dotbot[@]+"${_dotbot[@]}"}" -c "${META_DIR}/${BASE_CONFIG}${CONFIG_SUFFIX}" "${EFFECTIVE_DOTBOT_ARGS[@]+"${EFFECTIVE_DOTBOT_ARGS[@]}"}"
 
-for config in "${EXPANDED_ROLES[@]}"; do
-  "${_dotbot[@]}" -c "${META_DIR}/${CONFIG_DIR}/${config}${CONFIG_SUFFIX}" "${EFFECTIVE_DOTBOT_ARGS[@]}"
+config_index=0
+for config in "${RUN_CONFIGS[@]+"${RUN_CONFIGS[@]}"}"; do
+  role_config="${ROLE_CONFIGS[config_index]}"
+  role_root="${ROLE_CONFIG_ROOTS[config_index]}"
+  ADDON_CONFIGS=()
+  ADDON_ROOTS=()
+  ADDON_OUTPUT="${ROLE_ADDON_OUTPUTS[config_index]}"
+  addon_root_output="${ROLE_ADDON_ROOT_OUTPUTS[config_index]}"
+  if [ -n "${ADDON_OUTPUT}" ]; then
+    while IFS= read -r addon_config; do
+      [ -n "${addon_config}" ] && ADDON_CONFIGS+=("${addon_config}")
+    done <<EOF
+${ADDON_OUTPUT}
+EOF
+  fi
+  if [ -n "${addon_root_output}" ]; then
+    while IFS= read -r addon_root; do
+      [ -n "${addon_root}" ] && ADDON_ROOTS+=("${addon_root}")
+    done <<EOF
+${addon_root_output}
+EOF
+  fi
+  role_dotbot=("${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${role_root}" --plugin dotbot-brew --plugin dotbot-apt --plugin dotbot-role-deps)
+  "${role_dotbot[@]+"${role_dotbot[@]}"}" -c "${role_config}" "${EFFECTIVE_DOTBOT_ARGS[@]+"${EFFECTIVE_DOTBOT_ARGS[@]}"}"
+  addon_index=0
+  for addon_config in "${ADDON_CONFIGS[@]+"${ADDON_CONFIGS[@]}"}"; do
+    addon_root="${ADDON_ROOTS[addon_index]}"
+    addon_dotbot=("${BASE_DIR}/${DOTBOT_DIR}/${DOTBOT_BIN}" -d "${addon_root}" --plugin dotbot-brew --plugin dotbot-apt --plugin dotbot-role-deps)
+    "${addon_dotbot[@]+"${addon_dotbot[@]}"}" -c "${addon_config}" "${EFFECTIVE_DOTBOT_ARGS[@]+"${EFFECTIVE_DOTBOT_ARGS[@]}"}"
+    addon_index=$((addon_index + 1))
+  done
   echo -e "Configured $config"
+  config_index=$((config_index + 1))
 done
