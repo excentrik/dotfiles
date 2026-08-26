@@ -196,7 +196,7 @@ Before installing onto an existing machine, inspect local-only state without pri
 ~/.dotfiles$ ssh <host> 'for path in ~/.extra ~/.gitconfig_local ~/.gitconfig ~/.bashrc ~/.bash_profile ~/.profile ~/.config/systemd/user ~/.kube ~/.claude/settings.json ~/.claude/skills ~/.claude/projects ~/.copilot/settings.json ~/.copilot/skills ~/.copilot/sessions ~/.copilot/logs /etc/profile.d; do if [ -e "$path" ]; then stat -c "%n | %F | %s bytes | %y" "$path"; else printf "%s | missing\n" "$path"; fi; done'
 ```
 
-Preserve machine-specific shell snippets in `~/.extra` and machine-specific Git settings in `~/.gitconfig_local`. Keep kubeconfig contents, user/system services, Claude/Copilot sessions, unreviewed generated skills, caches, logs, plugin runtime state, auth/OAuth/API state, credentials, private keys, and system-managed `/etc` state out of this repository. The Copilot role links the reviewed skills into `~/.copilot/skills/` during installation so personal skills can coexist beside them and update with the dotfiles checkout.
+Preserve machine-specific shell snippets in `~/.extra` and machine-specific Git settings in `~/.gitconfig_local`. Keep kubeconfig contents, user/system services, Claude/Copilot sessions, unreviewed generated skills, caches, logs, plugin runtime state, auth/OAuth/API state, credentials, private keys, and system-managed `/etc` state out of this repository. The Copilot role links the reviewed skills into `~/.copilot/skills/` during installation so personal skills can coexist beside them and update with the dotfiles checkout. It also installs Impeccable as a Copilot plugin when absent; update it later with `copilot plugin update impeccable`.
 
 ## Loading source files
 

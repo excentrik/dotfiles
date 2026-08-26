@@ -118,7 +118,7 @@ Runs non-mutating validation checks:
   - Extension discovery, host selection, and active-code integrity checks
   - Dotbot link target checks
   - Direct Bun and Claude dependency dry-run checks
-  - Copilot skill format checks
+  - Copilot skill format and plugin setup checks
   - README generated command documentation drift checks
   - Dotbot dry-runs using a temporary HOME
 
@@ -4099,6 +4099,84 @@ SH
   rm -rf "${tmp_home}" "${tmp_bin}"
 }
 
+check_copilot_setup_installs_default_plugin() {
+  status "Checking Copilot setup installs default plugin"
+  local tmp_home
+  local tmp_bin
+  local operation_log
+  local output
+  local install_count
+
+  tmp_home="$(validation_workspace copilot-plugin-home)"
+  tmp_bin="$(validation_workspace copilot-plugin-bin)"
+  operation_log="${tmp_home}/.copilot/plugin-operations.log"
+  mkdir -p "${tmp_home}/.copilot"
+
+  cat > "${tmp_bin}/copilot" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+
+state="${HOME}/.copilot/impeccable-installed"
+operation_log="${HOME}/.copilot/plugin-operations.log"
+
+case "${1:-}" in
+  --version)
+    printf '%s\n' 'GitHub Copilot CLI 1.0.60'
+    ;;
+  plugin)
+    case "${2:-}" in
+      list)
+        printf '%s\n' 'Installed plugins:'
+        if [ -e "${state}" ]; then
+          printf '%s\n' '  impeccable (v4.1.1)'
+        fi
+        ;;
+      install)
+        printf '%s\n' "$*" >> "${operation_log}"
+        touch "${state}"
+        ;;
+      *)
+        exit 2
+        ;;
+    esac
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+SH
+  chmod +x "${tmp_bin}/copilot"
+
+  if ! output="$(
+    HOME="${tmp_home}" \
+    PATH="${tmp_bin}:${PATH}" \
+    helpers/copilot_setup.sh 2>&1
+  )"; then
+    echo "${output}" >&2
+    return 1
+  fi
+
+  if ! grep -Fxq 'plugin install pbakaus/impeccable' "${operation_log}"; then
+    echo "Expected Copilot setup to install Impeccable: ${output}" >&2
+    return 1
+  fi
+
+  if ! output="$(
+    HOME="${tmp_home}" \
+    PATH="${tmp_bin}:${PATH}" \
+    helpers/copilot_setup.sh 2>&1
+  )"; then
+    echo "${output}" >&2
+    return 1
+  fi
+
+  install_count="$(grep -Fc 'plugin install pbakaus/impeccable' "${operation_log}")"
+  if [ "${install_count}" -ne 1 ]; then
+    echo "Expected repeated Copilot setup not to reinstall Impeccable: ${output}" >&2
+    return 1
+  fi
+}
+
 check_copilot_wrapper_supports_experimental_opt_out() {
   status "Checking Copilot wrapper supports experimental opt-out"
   local tmp_home
@@ -4541,6 +4619,7 @@ main() {
   check_copilot_skills
   check_copilot_setup_merges_experimental_default
   check_copilot_setup_links_skills
+  check_copilot_setup_installs_default_plugin
   check_copilot_wrapper_supports_experimental_opt_out
   check_tmux_setup_repairs_broken_tpm_link
   check_mosh_tmux_session

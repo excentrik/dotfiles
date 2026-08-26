@@ -13,6 +13,8 @@ COPILOT_SKILLS=(
     tdd
     teach
 )
+COPILOT_PLUGIN_NAME="impeccable"
+COPILOT_PLUGIN_SOURCE="pbakaus/impeccable"
 
 install_default_file() {
     local source_path="$1"
@@ -132,6 +134,24 @@ link_copilot_skills() {
 }
 
 link_copilot_skills
+
+ensure_copilot_plugin() {
+    local installed_plugins
+
+    if ! installed_plugins="$(copilot plugin list 2>&1)"; then
+        echo "error: unable to list installed Copilot plugins: ${installed_plugins}" >&2
+        return 1
+    fi
+
+    if printf '%s\n' "${installed_plugins}" |
+        grep -Eq "(^|[[:space:]])${COPILOT_PLUGIN_NAME}([@[:space:]]|$)"; then
+        echo "Copilot plugin already installed: ${COPILOT_PLUGIN_NAME}"
+        return 0
+    fi
+
+    echo "Installing Copilot plugin: ${COPILOT_PLUGIN_NAME} (${COPILOT_PLUGIN_SOURCE})"
+    copilot plugin install "${COPILOT_PLUGIN_SOURCE}"
+}
 
 node_major_version() {
     node -p 'process.versions.node.split(".")[0]' 2>/dev/null || true
@@ -328,6 +348,7 @@ fi
 if command -v copilot >/dev/null 2>&1; then
     if copilot_version="$(copilot_version_output)"; then
         echo "GitHub Copilot CLI is in PATH: $(which copilot) ($(printf '%s\n' "${copilot_version}" | head -1))"
+        ensure_copilot_plugin
     else
         echo "warning: 'copilot' is in PATH but did not report a non-interactive version. Check the Node.js version used by the shim." >&2
     fi

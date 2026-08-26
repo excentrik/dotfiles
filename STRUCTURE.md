@@ -161,7 +161,7 @@ initialization calls the host module's functions.
 | python_setup.sh | Python environment setup (role: python) |
 | brew_setup.sh | Homebrew initialization (role: brew, OSX) |
 | xcode_cli_setup.sh | Xcode Command Line Tools setup only; does not install full Xcode (role: xcode_cli, OSX). Headless/CI macOS hosts must preinstall CLT (e.g. via MDM or `xcode-select --install` in a setup step) before running `./install`; the helper deliberately skips its interactive GUI prompt when stdin is not a TTY or `DOTFILES_NO_INTERACTIVE` is set. |
-| copilot_setup.sh | Ensures Node.js 24+ (installs user-local Node 24 when needed) and installs/updates GitHub Copilot CLI with npm |
+| copilot_setup.sh | Ensures Node.js 24+ (installs user-local Node 24 when needed), installs/updates GitHub Copilot CLI with npm, and installs the default Impeccable plugin |
 | hosts.sh | Generic host family, profile, detection, environment, and role collection helpers; source after `extensions.sh` |
 | ohmyzsh_setup.sh | Copies `~/.oh-my-zsh` from the checked-out Oh My Zsh submodule when safe (role: ohmyzsh) |
 | node_setup.sh | Node environment setup (if used by a role) |
@@ -208,6 +208,8 @@ The `copilot` role copies shared GitHub Copilot CLI defaults from `home_files/.c
 The `copilot` role also copies `home_files/.copilot/copilot-instructions.md` into `~/.copilot/copilot-instructions.md` only when the local file is missing or still points at the old repo-managed symlink. Existing local instruction files are preserved.
 
 The `copilot` role links the five repository-managed skills from `home_files/.copilot/skills/` into `~/.copilot/skills/`: `evidence-research`, `grill-with-docs`, `handoff`, `tdd`, and `teach`. Copilot discovers per-skill directory symlinks, so pulling dotfiles updates the managed skills immediately while unrelated personal skills remain separate. The helper migrates exact copies from the previous installation behavior and refuses ambiguous same-name directories or symlinks.
+
+The `copilot` role also installs the Impeccable plugin from `pbakaus/impeccable` when it is not already installed. The plugin remains managed by Copilot under `~/.copilot/installed-plugins`; run `copilot plugin update impeccable` to update it, and repeat dotfiles installs do not overwrite an existing plugin version.
 
 `helpers/copilot_setup.sh` ensures a Node.js 24 runtime for Copilot. If the current `node` is older than 24 (or missing), it installs the latest `v24.x` Node build to `~/.local/node-v24`, symlinks `node`/`npm`/`npx`/`corepack` into `~/.local/bin`, and then installs/updates `@github/copilot`.
 
