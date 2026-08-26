@@ -1288,7 +1288,9 @@ done
 printf 'dotbot-base=%s config=%s\n' "${base}" "${config}"
 SH
   chmod +x "${root}/dotbot/bin/dotbot"
-  printf '%s\n' '- core: ~' > "${root}/meta/hosts/unix.yaml"
+  for host in osx unix wsl docker; do
+    printf '%s\n' '- core: ~' > "${root}/meta/hosts/${host}.yaml"
+  done
   for family in osx unix wsl docker; do
     printf '%s\n' "${family}" > "${root}/meta/host-families/${family}"
   done
@@ -3396,12 +3398,19 @@ fi
 exit 0
 SH
   chmod +x "${root}/trap-probe.sh"
-  if ! (
+  if ! output="$(
     cd "${root}"
     BASE_DIR="${root}" TMPDIR="${runtime_parent}" \
-      bash "${root}/trap-probe.sh" "${trap_log}"
-  ); then
+      bash "${root}/trap-probe.sh" "${trap_log}" 2>&1
+  )"; then
     echo "Expected mktemp failure to restore the caller traps." >&2
+    echo "${output}" >&2
+    rm -rf "${root}"
+    return 1
+  fi
+  if ! printf '%s\n' "${output}" |
+    grep -Fq "unable to create extension runtime temporary directory"; then
+    echo "Expected mktemp failure to report the runtime directory error." >&2
     rm -rf "${root}"
     return 1
   fi
