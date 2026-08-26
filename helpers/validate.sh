@@ -4277,36 +4277,82 @@ SH
 }
 
 check_mosh_tmux_session() {
-  status "Checking managed Mosh tmux startup"
+  status "Checking managed Mosh tmux chooser"
   local tmp_bin
+  local tmux_log
   local output
 
   tmp_bin="$(validation_workspace mosh-tmux-bin)"
+  tmux_log="${tmp_bin}/tmux.log"
   cat > "${tmp_bin}/tmux" <<'SH'
 #!/usr/bin/env bash
-printf '%s\n' "$*"
-SH
-  chmod +x "${tmp_bin}/tmux"
+set -euo pipefail
 
+case "${1:-}" in
+  list-sessions)
+    printf '%s\n' alpha beta
+    ;;
+  new-session)
+    printf '%s\n' "$*" > "${TMUX_TEST_LOG}"
+    ;;
+  *)
+    echo "Unexpected tmux command: $*" >&2
+    exit 2
+    ;;
+esac
+SH
+  cat > "${tmp_bin}/sleep" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+  cat > "${tmp_bin}/stty" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' '24 80'
+SH
+  chmod +x "${tmp_bin}/tmux" "${tmp_bin}/sleep" "${tmp_bin}/stty"
+
+  : > "${tmux_log}"
   output="$(
+    printf '%s\n' 2 |
     PATH="${tmp_bin}:/usr/bin:/bin" \
-    MOSH_TMUX_SESSION= \
-    USER="test-user" \
-    home_files/bin/mosh-tmux-session
+    TMUX_TEST_LOG="${tmux_log}" \
+      home_files/bin/mosh-tmux-session 2>&1
   )"
-  if [ "${output}" != "new-session -A -s test-user" ]; then
-    echo "Expected managed Mosh startup to attach to the user session; got: ${output}" >&2
+  case "${output}" in
+    *"Tmux: 1=alpha 2=beta "*)
+      ;;
+    *)
+      echo "Expected Mosh chooser to list existing sessions; got: ${output}" >&2
+      rm -rf "${tmp_bin}"
+      return 1
+      ;;
+  esac
+  if [ "$(cat "${tmux_log}")" != "new-session -A -s beta" ]; then
+    echo "Expected selection 2 to attach session beta." >&2
     rm -rf "${tmp_bin}"
     return 1
   fi
 
+  : > "${tmux_log}"
   output="$(
+    printf '%s\n' ipad |
     PATH="${tmp_bin}:/usr/bin:/bin" \
-    MOSH_TMUX_SESSION=" team session " \
-    home_files/bin/mosh-tmux-session
+    TMUX_TEST_LOG="${tmux_log}" \
+      home_files/bin/mosh-tmux-session 2>&1
   )"
-  if [ "${output}" != "new-session -A -s team_session" ]; then
-    echo "Expected managed Mosh startup to sanitize the configured session; got: ${output}" >&2
+  if [ "$(cat "${tmux_log}")" != "new-session -A -s ipad" ]; then
+    echo "Expected a valid name to create or attach that session; got: ${output}" >&2
+    rm -rf "${tmp_bin}"
+    return 1
+  fi
+
+  : > "${tmux_log}"
+  printf '\n' |
+    PATH="${tmp_bin}:/usr/bin:/bin" \
+    TMUX_TEST_LOG="${tmux_log}" \
+      home_files/bin/mosh-tmux-session >/dev/null 2>&1
+  if [ -s "${tmux_log}" ]; then
+    echo "Expected a blank chooser response to leave a plain shell." >&2
     rm -rf "${tmp_bin}"
     return 1
   fi

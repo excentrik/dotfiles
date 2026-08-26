@@ -7,11 +7,65 @@ if ! command -v tmux >/dev/null 2>&1; then
   exit 1
 fi
 
-raw_session="${MOSH_TMUX_SESSION:-${USER:-mosh}}"
-session="$(printf '%s' "$raw_session" | tr -c '[:alnum:]_.-' '_' | sed 's/^_*//; s/_*$//')"
+sessions=()
+previous_size=''
+stable_samples=0
 
-if [ -z "$session" ]; then
-  session="mosh"
+sleep 1
+for _ in {1..50}; do
+  read -r rows columns < <(stty size 2>/dev/null || printf '0 0\n')
+  if [[ "$rows" =~ ^[0-9]+$ ]] &&
+     [[ "$columns" =~ ^[0-9]+$ ]] &&
+     ((rows >= 5 && rows <= 1000 && columns >= 20 && columns <= 1000)); then
+    current_size="${rows}x${columns}"
+    if [[ "$current_size" == "$previous_size" ]]; then
+      ((stable_samples += 1))
+    else
+      previous_size="$current_size"
+      stable_samples=0
+    fi
+
+    if ((stable_samples >= 5)); then
+      break
+    fi
+  else
+    previous_size=''
+    stable_samples=0
+  fi
+  sleep 0.1
+done
+
+while IFS= read -r name; do
+  [[ -n "$name" ]] || continue
+  sessions+=("$name")
+done < <(
+  tmux list-sessions -F '#S' 2>/dev/null || true
+)
+
+printf '\nTmux: '
+if ((${#sessions[@]} == 0)); then
+  printf '(none)'
+else
+  for index in "${!sessions[@]}"; do
+    printf '%d=%s ' "$((index + 1))" "${sessions[$index]}"
+  done
+fi
+printf '\n'
+read -r -p 'Choose # or new name (blank=shell): ' selection
+
+[[ -n "$selection" ]] || exit 0
+
+if [[ "$selection" =~ ^[0-9]+$ ]]; then
+  if ((selection < 1 || selection > ${#sessions[@]})); then
+    printf 'Invalid session selection.\n' >&2
+    exit 64
+  fi
+  session_name="${sessions[$((selection - 1))]}"
+elif [[ "$selection" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+  session_name="$selection"
+else
+  printf 'Invalid session selection or name.\n' >&2
+  exit 64
 fi
 
-exec tmux new-session -A -s "$session"
+exec tmux new-session -A -s "$session_name"
