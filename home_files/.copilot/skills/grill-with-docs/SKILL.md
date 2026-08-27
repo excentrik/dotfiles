@@ -34,15 +34,49 @@ creates documentation automatically. If a durable write is warranted, expect
 an exact normalized path and content preview followed by a separate
 confirmation for each write.
 
+Render each active clarification turn as a Markdown question card. Keep the
+ledger as a separate, readable block and preserve all populated ledger fields:
+`Decisions`, `Evidence`, `Assumptions`, `Contradictions`, `Glossary`, and
+`Open`. Omit only empty sections.
+
+```markdown
+### Decision: [short title]
+
+**Ledger**
+
+- **Decisions:** ...
+- **Evidence:** ...
+- **Assumptions:** ...
+- **Contradictions:** ...
+- **Glossary:** ...
+- **Open:** ...
+
+**Context:** [brief relevant context]
+
+**Question:** **[one question only]**
+
+**Choices:**
+
+- [Recommended option]
+- [Alternative]
+```
+
 ## Workflow
 
 1. Inspect the available trusted project context and state the plan or design
    being clarified without modifying it. Keep one visible **replacement ledger**
-   per turn; replace it rather than appending a duplicate:
+   per turn in its own Markdown block; replace it rather than appending a
+   duplicate. Preserve all populated fields and omit only empty sections:
 
-   ```text
-   Ledger - decisions: ... | evidence: ... | assumptions: ... |
-   contradictions: ... | glossary: ... | open (ranked by expected impact, <=10): ...
+   ```markdown
+   **Ledger**
+
+   - **Decisions:** ...
+   - **Evidence:** ...
+   - **Assumptions:** ...
+   - **Contradictions:** ...
+   - **Glossary:** ...
+   - **Open:** ...
    ```
 
    Include only useful categories, apply contextual redaction, and keep the
@@ -74,11 +108,11 @@ confirmation for each write.
 
 ## Output and guardrails
 
-- Keep every active clarification turn focused on the replacement ledger, one
-  decision boundary, and one question. A terminal response after all material
-  boundaries are resolved or explicitly deferred may provide the replacement
-  ledger or summary with no question. Write-preview, confirmation, and result
-  turns must not invent an extra design question.
+- Keep every active clarification turn focused on the structured replacement
+  ledger, one decision boundary, and one question card. A terminal response
+  after all material boundaries are resolved or explicitly deferred may provide
+  the replacement ledger or summary with no question. Write-preview,
+  confirmation, and result turns must not invent an extra design question.
 - Chat suggestions are not durable decisions until the user confirms them
   through the project's chosen process. Documentation permission never
   authorizes code or configuration changes.
