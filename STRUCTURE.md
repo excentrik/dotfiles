@@ -144,6 +144,7 @@ zsh and Oh My Zsh enable [atuin](https://atuin.sh) shell history with `atuin ini
 | `home_files/.aliases/ssh_tunnels.sh` | `meta/roles/docker_container.yaml` | Container SSH tunnel helpers |
 | `home_files/.aliases/osx.sh` | `meta/roles/osx.yaml` | macOS-specific aliases |
 | `home_files/.aliases/python_aliases.sh` | `meta/roles/python.yaml` | Python aliases |
+| `home_files/.aliases/window-layout.sh` | `meta/roles/window-layout.yaml` | yabai window-layout save/restore aliases |
 
 ### helpers/
 
@@ -184,6 +185,33 @@ creates `~/.hushlogin` to silence the system login banner and, in concert with
 banners emitted by `~/.bashrc`, `~/.zshrc`, and the shared aliases. Opt in
 per-machine via `./install <host> hush` rather than adding it to a host
 profile, so the choice is explicit per environment.
+
+The core `window-layout` role is also absent from core host profiles. Core-only
+checkouts can opt in explicitly with `./install osx window-layout`.
+
+## Window layout role
+
+The core `window-layout` role links the yabai restore helper, its aliases, and
+`.yabairc`. It is selected only by an explicit extra-role argument. The helper
+requires a running `yabai`, `swift`, `python3`, `osascript`, and `md5`, plus
+Xcode Command Line Tools for the Swift Cocoa/CoreGraphics query. It stores
+layouts, backups, a bounded debug log, and manual-restore lock state under
+`~/.window-layouts`. Scheduled PID state, publication-lock state, and rotated
+worker stdout/stderr logs are stored under
+`${XDG_RUNTIME_DIR:-${XDG_CACHE_HOME:-$HOME/.cache}}/window-layout`, whose
+directory and files are private and reject symlinks. Display events use runtime
+PID state and a publication lock for debouncing; incomplete publication state
+fails closed during its grace period, while stale abandoned lock and reclaim
+state is recovered automatically. A scheduled restore never interrupts a
+manual restore holding `.restore.lock`; it retries until its bounded deadline
+and exits without restoring when that lock remains owned by another live
+process.
+
+Saved layout files use display UUIDs first and CoreGraphics display bounds for
+coordinate matching. Chrome window IDs are only reused while the saved Chrome
+process identity is still current. Set
+`WINDOW_LAYOUT_CHROME_TITLE_SUFFIXES` to a `|`-separated list when local Chrome
+title suffixes need normalization beyond the generic ` - google chrome` default.
 
 ## Git configuration
 
